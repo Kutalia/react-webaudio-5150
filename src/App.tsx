@@ -1,29 +1,36 @@
-import { ChangeEvent, useState, useEffect, useRef } from 'react';
-import logo from './logo.svg';
+///<reference types="@grame/libfaust" />
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
-const defaultGain = 5;
+import Pedal, { nodeType } from './features/pedal';
+import TubeAmp from './features/tubeAmp';
+
+declare var FaustModule: any;
 
 interface StateType {
   audioContext: AudioContext | null,
-  gainNode: GainNode | null,
   lineInStreamSource: MediaStreamAudioSourceNode | null,
   diTrackStreamSource: MediaElementAudioSourceNode | null,
-  gain: number | null,
+  faustCompiler: Faust.Compiler | null,
+  faustFactory: Faust.MonoFactory | null,
+  faustCode: string,
+  faustNode: Faust.FaustMonoNode | null,
 }
 
 const initialState = {
   audioContext: null,
-  gainNode: null,
   lineInStreamSource: null,
   diTrackStreamSource: null,
-  gain: null,
+  faustCompiler: null,
+  faustFactory: null,
+  faustCode: '',
+  faustNode: null,
 };
 
 function App() {
   const [state, setState] = useState<StateType>(initialState);
 
-  const { audioContext, gain, lineInStreamSource, diTrackStreamSource } = state;
+  const { audioContext, lineInStreamSource, diTrackStreamSource } = state;
 
   const diAudioRef = useRef(new Audio());
 
@@ -57,24 +64,6 @@ function App() {
     }));
   }
 
-  function changeVolume(event: ChangeEvent<HTMLInputElement>) {
-    const { gainNode } = state;
-
-    if (!audioContext || !gainNode) {
-      event.preventDefault();
-      return;
-    }
-
-    const parsed = parseFloat(event.target.value);
-    const value = Number.isNaN(parsed) ? 1 : parsed;
-
-    gainNode.gain.setTargetAtTime(value, audioContext.currentTime, 0.01);
-    setState((prevState) => ({
-      ...prevState,
-      gain: value,
-    }));
-  }
-
   function onDiPlay() {
     if (diTrackStreamSource) {
       return;
@@ -95,54 +84,52 @@ function App() {
   }
 
   useEffect(() => {
-    if (!audioContext) {
-      return;
-    }
+    FaustModule().then((module: any) => {
+      let compiler = Faust.createCompiler(Faust.createLibFaust(module) as Faust.LibFaust);
 
-    const streamSource = lineInStreamSource || diTrackStreamSource;
+      let factory = Faust.createMonoFactory();
 
-    if (!streamSource) {
-      return;
-    }
-
-    let gainNode: GainNode;
-
-    if (state.gainNode) {
-      gainNode = state.gainNode;
-    } else {
-      gainNode = new GainNode(audioContext, { gain: defaultGain });
       setState((prevState) => ({
         ...prevState,
-        gainNode,
+        faustFactory: factory,
+        faustCompiler: compiler,
       }));
+    });
+  }, []);
+
+  const onNodeReady = (node: nodeType) => {
+    const streamSource = lineInStreamSource || diTrackStreamSource;
+
+    if (!streamSource || !audioContext || !node) {
       return;
     }
 
     resumeAudioContext(audioContext).then(() => {
       const convolver = new ConvolverNode(audioContext);
 
-      fetch('/ir/2off-pres5.wav')
+      fetch('/ir/1on-preshigh.wav')
         .then(response => response.arrayBuffer())
         .then(buffer => {
           audioContext.decodeAudioData(buffer, decoded => {
             convolver.buffer = decoded;
-            streamSource.connect(convolver).connect(gainNode).connect(audioContext.destination);
-          });
-        }).catch((err) => console.error(err));
+
+            streamSource.connect(node as AudioNode).connect(convolver).connect(audioContext.destination);
+          }).catch((err) => console.error(err));
+        });
     });
-  }, [lineInStreamSource, diTrackStreamSource, audioContext, state.gainNode]);
+  };
 
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
+        <div>
           Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
-          <input type="range" min="0" max="1" step="0.01" value={String(gain)} onChange={changeVolume} />
+          {/* <Pedal sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onNodeReady={onNodeReady} /> */}
+          <TubeAmp compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onNodeReady={onNodeReady} />
           <audio controls ref={diAudioRef} onPlay={onDiPlay}>
             <source src="di/LasseMagoDI.mp3" type="audio/mpeg" />
           </audio>
-        </p>
+        </div>
       </header>
     </div>
   );

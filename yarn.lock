@@ -1164,6 +1164,11 @@
     minimatch "^3.0.4"
     strip-json-comments "^3.1.1"
 
+"@grame/libfaust@^1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@grame/libfaust/-/libfaust-1.0.2.tgz#b7687028499572657e261804bc76791f2a370d44"
+  integrity sha512-+zq4B9+vRGccCVXtPYvJbhWb/hRNt1/BbFu5MuHwdAZxSCW1zuDL471UNnjFyAYfNH0EDoRzcvh3niWjRdxDrA==
+
 "@hapi/address@2.x.x":
   version "2.1.4"
   resolved "https://registry.yarnpkg.com/@hapi/address/-/address-2.1.4.tgz#5d67ed43f3fd41a69d4b9ff7b56e7c0d1d0a81e5"
