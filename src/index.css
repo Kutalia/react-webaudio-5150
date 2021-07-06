@@ -43,11 +43,15 @@ code {
 .plugin {
   padding: 20px;
   margin: 20px;
-  width: 300px;
+  min-width: 300px;
 }
 
 .knobs-wrapper {
   display: flex;
+  justify-content: center;
+}
+
+.pedal .knobs-wrapper {
   flex-wrap: wrap;
 }
 
@@ -74,7 +78,11 @@ code {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex-grow: 1;
+}
+
+.amp-head .knob {
+  width: 80px;
+  padding: 0 10px;
 }
 
 .pedal .knob {

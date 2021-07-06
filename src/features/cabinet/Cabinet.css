@@ -1,0 +1,27 @@
+.cabinet {
+    margin: 20px 0;
+    display: inline-block;
+    position: relative;
+}
+
+.cabinet .speaker {
+    width: 200px;
+}
+
+.mic {
+    width: 130px;
+    position: absolute;
+    top: 37%;
+}
+
+.mic--center {
+    left: 34%;
+}
+
+.mic--cone {
+    left: 46%;
+}
+
+.mic--edge {
+    left: 74%;
+}

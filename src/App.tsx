@@ -4,6 +4,7 @@ import './App.css';
 
 import Pedal, { nodeType as pedalNodeType } from './features/pedal';
 import TubeAmp, { nodeType as tubeAmpNodeType } from './features/tubeAmp';
+import Cabinet from './features/cabinet';
 
 declare var FaustModule: any;
 
@@ -13,6 +14,7 @@ interface StateType {
   diTrackStreamSource: MediaElementAudioSourceNode | null,
   cabConvolver: ConvolverNode | null,
   plugins: Array<Array<pedalNodeType | tubeAmpNodeType>>,
+  allPluginsTailNode: AudioNode | pedalNodeType | tubeAmpNodeType | null,
   faustCompiler: Faust.Compiler | null,
   faustFactory: Faust.MonoFactory | null,
   faustCode: string,
@@ -24,6 +26,7 @@ const initialState: StateType = {
   diTrackStreamSource: null,
   cabConvolver: null,
   plugins: [],
+  allPluginsTailNode: null,
   faustCompiler: null,
   faustFactory: null,
   faustCode: '',
@@ -99,21 +102,6 @@ function App() {
     });
   }, []);
 
-  useEffect(() => {
-    if (!state.cabConvolver && audioContext) {
-      fetch('/ir/1on-preshigh.wav')
-        .then(response => response.arrayBuffer())
-        .then(buffer => {
-          audioContext.decodeAudioData(buffer, decoded => {
-            const cabConvolver = new ConvolverNode(audioContext);
-            cabConvolver.buffer = decoded;
-
-            setState(prevState => ({ ...prevState, cabConvolver }));
-          });
-        })
-    }
-  }, [state.cabConvolver, audioContext]);
-
   const streamSource = lineInStreamSource || diTrackStreamSource;
 
   const onPluginReady = useCallback((nodes: (pedalNodeType | tubeAmpNodeType)[], index: number) => {
@@ -124,8 +112,24 @@ function App() {
     });
   }, []);
 
+  const onCabReady = useCallback((cabConvolver: ConvolverNode) => {
+    setState(prevState => {
+      if (prevState.cabConvolver && prevState.audioContext && prevState.allPluginsTailNode) {
+        prevState.allPluginsTailNode.disconnect(prevState.cabConvolver);
+        prevState.cabConvolver.disconnect(prevState.audioContext.destination);
+      }
+      return { ...prevState, cabConvolver };
+    });
+  }, []);
+
   useEffect(() => {
-    if (!streamSource || !audioContext || !state.plugins.length || !state.cabConvolver) {
+    if (state.cabConvolver && state.allPluginsTailNode && state.audioContext) {
+      (state.allPluginsTailNode as AudioNode).connect(state.cabConvolver as ConvolverNode).connect(state.audioContext.destination);
+    }
+  }, [state.cabConvolver, state.allPluginsTailNode, state.audioContext]);
+
+  useEffect(() => {
+    if (!streamSource || !audioContext || !state.plugins.length) {
       return;
     }
 
@@ -142,26 +146,25 @@ function App() {
         return index === 0 ? pluginTailNode : (pluginTailNode as AudioNode).connect(prevPlugin as AudioNode);
       }, {});
 
-      (allPluginsTailNode as AudioNode).connect(state.cabConvolver as ConvolverNode).connect(audioContext.destination);
+      setState(prevState => ({ ...prevState, allPluginsTailNode: allPluginsTailNode as AudioNode }));
     });
-  }, [state.plugins, streamSource, audioContext, state.cabConvolver]);
+  }, [state.plugins, streamSource, audioContext]);
 
   return (
     <div className="App">
-      <header className="App-header">
-        <div>
-          <div>
-            Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
-          </div>
-          <Pedal index={0} sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
-          <TubeAmp index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
-          <div>
-            <audio controls ref={diAudioRef} onPlay={onDiPlay}>
-              <source src="di/LasseMagoDI.mp3" type="audio/mpeg" />
-            </audio>
-          </div>
-        </div>
-      </header>
+      <div>
+        Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
+      </div>
+      <div className="plugins-wrapper">
+        <Pedal index={0} sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
+        <TubeAmp index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
+      </div>
+      <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
+      <div>
+        <audio controls ref={diAudioRef} onPlay={onDiPlay}>
+          <source src="di/LasseMagoDI.mp3" type="audio/mpeg" />
+        </audio>
+      </div>
     </div>
   );
 }
