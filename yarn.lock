@@ -8916,6 +8916,10 @@ raw-body@2.4.0:
     iconv-lite "0.4.24"
     unpipe "1.0.0"
 
+"rc-knob@https://github.com/szilard-dobai/rc-knob":
+  version "1.0.0"
+  resolved "https://github.com/szilard-dobai/rc-knob#983feac9acdf62c812a2ca8aa141658402a4864d"
+
 react-app-polyfill@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/react-app-polyfill/-/react-app-polyfill-2.0.0.tgz#a0bea50f078b8a082970a9d853dc34b6dcc6a3cf"

@@ -1,5 +1,6 @@
 ///<reference types="@grame/libfaust" />
-import { ChangeEvent, useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react';
+import { Knob, Pointer, Arc } from 'rc-knob';
 
 import { Profile, ProfileProps, profileSize, Impulse, impulseSize } from './profile';
 
@@ -28,7 +29,7 @@ type controlsType = Record<string, string>;
 
 const tubeAmpAddr = '/kpp_tubeamp.dsp';
 
-const getControlsByType = (node: any, ctrlType: string): descriptorType[] => node? (node).fDescriptor.filter(({ type }: descriptorType) => type === ctrlType) : [];
+const getControlsByType = (node: any, ctrlType: string): descriptorType[] => node ? (node).fDescriptor.filter(({ type }: descriptorType) => type === ctrlType) : [];
 
 const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes) => {
     const [node, setNode] = useState<Faust.FaustMonoNode>();
@@ -56,7 +57,7 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
                     let bufferPosition = 0;
                     const profileBuffer = buffer.slice(0, profileSize);
                     bufferPosition = profileSize;
-    
+
                     // 4 chars 1 byte each
                     const signature = new Uint8Array(profileBuffer.slice(0, 4));
                     const testStr = 'TaPf';
@@ -64,47 +65,47 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
                     for (let i = 0; i < testStr.length; i++) {
                         if (testStr.charCodeAt(i) !== signature[i]) return;
                     }
-    
+
                     const profileVersion = new Uint32Array(profileBuffer.slice(4, 8))[0];
-    
+
                     const profileArr = new Float32Array(profileBuffer);
-    
+
                     let profile: Profile;
-    
+
                     profile = profileArr.reduce<object>((prevVal, currentVal, index) =>
                         Object.assign(prevVal, { [ProfileProps[index]]: currentVal })
                         , {}) as Profile;
-    
+
                     profile.signature = testStr;
                     profile.version = profileVersion;
-    
+
                     setProfile(profile);
-    
+
                     const impulseHeader = buffer.slice(bufferPosition, bufferPosition + impulseSize);
                     bufferPosition += impulseSize;
-    
+
                     const impulseHeaderArr = new Int32Array(impulseHeader);
                     const sampleRate = impulseHeaderArr[0];
                     const impulseSampleCount = impulseHeaderArr[2];
                     const impulseSamplesSize = impulseSampleCount * 4;
-    
+
                     const impulseBuffer = buffer.slice(bufferPosition, bufferPosition + impulseSamplesSize);
                     bufferPosition += impulseSamplesSize;
-                    
+
                     if (impulseBuffer.byteLength !== impulseSamplesSize) {
                         return;
                     }
-                    
+
                     const preampConvolver = new ConvolverNode(context);
                     const audioBuffer = context.createBuffer(1, impulseSampleCount, sampleRate);
 
                     const audioData = audioBuffer.getChannelData(0);
                     const impulseBufferArr = new Float32Array(impulseBuffer);
 
-                    for (let i = 0; i< audioBuffer.length; i++) {
+                    for (let i = 0; i < audioBuffer.length; i++) {
                         audioData[i] = impulseBufferArr[i];
                     }
-                    
+
                     preampConvolver.buffer = audioBuffer;
 
                     onPluginReady([preampConvolver, node], index);
@@ -114,7 +115,7 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
 
     useEffect(() => {
         const nentryParams = getControlsByType(node, 'nentry');
-        
+
         if (profile) {
             nentryParams.forEach((descriptor) => {
                 node?.setParamValue(descriptor.address, profile[descriptor.label as keyof typeof ProfileProps] as number)
@@ -126,22 +127,44 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
 
     const sliderParams = getControlsByType(node, 'vslider');
 
-    const handleChangeControl = (e: ChangeEvent<HTMLInputElement>) => {
-        const address = e.target.id;
-        const value = e.target.value;
-
-        node.setParamValue(address, Number.parseFloat(value));
+    const handleChangeControl = (address: string, val: number) => {
+        node.setParamValue(address, val);
     };
 
     return (
-        <>
-            {sliderParams.map(({ address, init, label, min, max, step }: descriptorType) => (
-                <div key={address}>
-                    <label htmlFor={address}>{label}</label>
-                    <input id={address} type="range" min={min} max={max} step={step} defaultValue={init} onChange={handleChangeControl} />
-                </div>
-            ))}
-        </>
+        <div className="plugin amp-head">
+            <div className="plugin-title">{(node as any)?.fJSONDsp?.name}</div>
+            <div className="knobs-wrapper">
+                {sliderParams.map(({ address, init, label, min, max, step }: descriptorType) => (
+                    <div key={address} className="knob">
+                        <label htmlFor={address}>{label}</label>
+                        <Knob
+                            size={50}
+                            angleOffset={220}
+                            angleRange={280}
+                            min={min}
+                            max={max}
+                            className="styledKnob"
+                            value={init || 0.01} // because it renders incorrectly if 0
+                            onChange={(val: number) => handleChangeControl(address, val)}
+                        >
+                            <Arc
+                                arcWidth={0.75}
+                            />
+                            <circle r="20" cx="25" cy="25" />
+                            <Pointer
+                                width={1}
+                                height={17.5}
+                                radius={5}
+                                type="rect"
+                                color="#fff"
+                            />
+                        </Knob>
+
+                    </div>
+                ))}
+            </div>
+        </div>
     )
 };
 

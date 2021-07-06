@@ -150,12 +150,16 @@ function App() {
     <div className="App">
       <header className="App-header">
         <div>
-          Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
+          <div>
+            Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
+          </div>
           <Pedal index={0} sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
           <TubeAmp index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
-          <audio controls ref={diAudioRef} onPlay={onDiPlay}>
-            <source src="di/LasseMagoDI.mp3" type="audio/mpeg" />
-          </audio>
+          <div>
+            <audio controls ref={diAudioRef} onPlay={onDiPlay}>
+              <source src="di/LasseMagoDI.mp3" type="audio/mpeg" />
+            </audio>
+          </div>
         </div>
       </header>
     </div>

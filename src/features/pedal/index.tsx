@@ -1,5 +1,6 @@
 ///<reference types="@grame/libfaust" />
-import { ChangeEvent, useState, useEffect, useRef } from 'react'
+import { ChangeEvent, useState, useEffect, useRef } from 'react';
+import { Knob, Pointer, Arc, Value } from 'rc-knob';
 
 export type nodeType = Faust.FaustMonoNode | null;
 
@@ -47,22 +48,46 @@ const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: 
 
   const sliderParams = (node as any).fDescriptor.filter(({ type }: descriptorType) => type === 'vslider');
 
-  const handleChangeControl = (e: ChangeEvent<HTMLInputElement>) => {
-    const address = e.target.id;
-    const value = e.target.value;
-
-    node.setParamValue(address, Number.parseFloat(value));
+  const handleChangeControl = (address: string, val: number) => {
+    node.setParamValue(address, val);
   };
 
   return (
-    <>
-      {sliderParams.map(({ address, init, label, min, max, step }: descriptorType) => (
-        <div key={address}>
-          <label htmlFor={address}>{label}</label>
-          <input id={address} type="range" min={min} max={max} step={step} defaultValue={init} onChange={handleChangeControl} />
-        </div>
-      ))}
-    </>
+    <div className="plugin pedal">
+      <div className="plugin-title">{(node as any)?.fJSONDsp?.name}</div>
+      <div className="knobs-wrapper">
+        {sliderParams.map(({ address, init, label, min, max, step }: descriptorType) => (
+          <div key={address} className="knob">
+            <label htmlFor={address}>{label.toUpperCase()}</label>
+            <Knob
+              size={50}
+              angleOffset={220}
+              angleRange={280}
+              min={min}
+              max={max}
+              value={init || 0.01}
+              onChange={(val: number) => handleChangeControl(address, val)}
+            >
+              <Arc
+                arcWidth={2.5}
+                color="#FC5A96"
+                radius={18.75}
+              />
+              <Pointer
+                width={2.5}
+                radius={20}
+                type="circle"
+                color="#180094"
+              />
+              <Value
+                marginBottom={20}
+                className="value"
+              />
+            </Knob>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 };
 
