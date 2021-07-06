@@ -1,14 +1,15 @@
 ///<reference types="@grame/libfaust" />
-import { ChangeEvent, useState, useEffect } from 'react'
+import { ChangeEvent, useState, useEffect, useRef } from 'react'
 
 export type nodeType = Faust.FaustMonoNode | null;
 
 type propTypes = {
+  index: number,
   sourceUrl: string,
   context: AudioContext | null,
   factory: Faust.MonoFactory | null,
   compiler: Faust.Compiler | null,
-  onNodeReady: (node: nodeType) => void,
+  onPluginReady: (node: nodeType[], index: number) => void,
 };
 
 type descriptorType = {
@@ -24,21 +25,23 @@ type descriptorType = {
 
 type controlsType = Record<string, string>;
 
-const Pedal = ({ sourceUrl, context, factory, compiler, onNodeReady }: propTypes) => {
+const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: propTypes) => {
   const [node, setNode] = useState<nodeType>();
   const [controls, setControls] = useState<controlsType>({});
 
+  const fetchRef = useRef(false);
+
   useEffect(() => {
-    if (factory && context && compiler) {
+    if (factory && context && compiler && !node && !fetchRef.current) {
       fetch(sourceUrl).then(resp => resp.text()).then(text => {
-        factory.compileNode(context, 'Faust', compiler, text, '-ftz 2', false, 128).then(node => {
-          console.log(node);
+        fetchRef.current = true;
+        factory.compileNode(context, 'Pedal' + index, compiler, text, '-ftz 2', false, 128).then(node => {
           setNode(node);
-          onNodeReady(node);
+          onPluginReady([node], index);
         });
       });
     }
-  }, [sourceUrl, context, factory, compiler, onNodeReady]);
+  }, [sourceUrl, context, factory, compiler, onPluginReady, index, node, fetchRef]);
 
   if (!node) return null;
 
