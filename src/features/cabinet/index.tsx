@@ -35,8 +35,8 @@ const Cabinet = ({ audioContext, onCabReady }: PropTypes) => {
 
     return (
         <div className="cabinet" onClick={changePosition}>
-            <img className="speaker" src="/speaker.png" />
-            <img className={`mic mic--${positions[position]}`} src="/shure_sm57.png" />
+            <img className="speaker" alt="Guitar Speaker" src="/speaker.png" />
+            <img className={`mic mic--${positions[position]}`} alt="Microphone" src="/shure_sm57.png" />
         </div>
     );
 };

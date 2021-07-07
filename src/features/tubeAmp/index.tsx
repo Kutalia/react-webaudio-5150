@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Knob, Pointer, Arc } from 'rc-knob';
 
-import { Profile, ProfileProps, profileSize, Impulse, impulseSize } from './profile';
+import { Profile, ProfileProps, profileSize, impulseSize } from './profile';
 
 export type nodeType = Faust.FaustMonoNode | AudioNode;
 
@@ -25,15 +25,12 @@ type descriptorType = {
     type: string,
 };
 
-type controlsType = Record<string, string>;
-
 const tubeAmpAddr = '/kpp_tubeamp.dsp';
 
 const getControlsByType = (node: any, ctrlType: string): descriptorType[] => node ? (node).fDescriptor.filter(({ type }: descriptorType) => type === ctrlType) : [];
 
 const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes) => {
     const [node, setNode] = useState<Faust.FaustMonoNode>();
-    const [controls, setControls] = useState<controlsType>({});
     const [profile, setProfile] = useState<Profile>();
     const fetchRef = useRef(false);
 

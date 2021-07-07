@@ -1,5 +1,5 @@
 ///<reference types="@grame/libfaust" />
-import { ChangeEvent, useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Knob, Pointer, Arc, Value } from 'rc-knob';
 
 export type nodeType = Faust.FaustMonoNode | null;
@@ -24,11 +24,8 @@ type descriptorType = {
   type: string,
 };
 
-type controlsType = Record<string, string>;
-
 const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: propTypes) => {
   const [node, setNode] = useState<nodeType>();
-  const [controls, setControls] = useState<controlsType>({});
 
   const fetchRef = useRef(false);
 

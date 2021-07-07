@@ -1,5 +1,5 @@
 ///<reference types="@grame/libfaust" />
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './App.css';
 
 import Pedal, { nodeType as pedalNodeType } from './features/pedal';
@@ -122,6 +122,11 @@ function App() {
     });
   }, []);
 
+  const plugins = useMemo(() => [
+    <Pedal key={0} index={0} sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />,
+    <TubeAmp key={1} index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
+  ], [state.faustFactory, state.faustCompiler, state.audioContext, onPluginReady]);
+
   useEffect(() => {
     if (state.cabConvolver && state.allPluginsTailNode && Object.keys(state.allPluginsTailNode as object).length && state.audioContext) {
       (state.allPluginsTailNode as AudioNode).connect(state.cabConvolver as ConvolverNode).connect(state.audioContext.destination);
@@ -129,8 +134,8 @@ function App() {
   }, [state.cabConvolver, state.allPluginsTailNode, state.audioContext]);
 
   useEffect(() => {
-    if (!streamSource || !audioContext || state.plugins.length !== 2
-      || state.plugins.filter(plugin => !!plugin).length !== 2) {
+    if (!streamSource || !audioContext || state.plugins.length !== plugins.length
+      || state.plugins.filter(plugin => !!plugin).length !== plugins.length) {
       return;
     }
 
@@ -150,7 +155,7 @@ function App() {
 
       setState(prevState => ({ ...prevState, allPluginsTailNode: allPluginsTailNode as AudioNode }));
     });
-  }, [state.plugins, streamSource, audioContext]);
+  }, [state.plugins, plugins.length, streamSource, audioContext]);
 
   return (
     <div className="App">
@@ -158,8 +163,7 @@ function App() {
         Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
       </div>
       <div className="plugins-wrapper">
-        <Pedal index={0} sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
-        <TubeAmp index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
+        {plugins}
       </div>
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>
