@@ -123,28 +123,29 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (state.cabConvolver && state.allPluginsTailNode && state.audioContext) {
+    if (state.cabConvolver && state.allPluginsTailNode && Object.keys(state.allPluginsTailNode as object).length && state.audioContext) {
       (state.allPluginsTailNode as AudioNode).connect(state.cabConvolver as ConvolverNode).connect(state.audioContext.destination);
     }
   }, [state.cabConvolver, state.allPluginsTailNode, state.audioContext]);
 
   useEffect(() => {
-    if (!streamSource || !audioContext || !state.plugins.length) {
+    if (!streamSource || !audioContext || state.plugins.length !== 2) {
       return;
     }
 
     resumeAudioContext(audioContext).then(() => {
-      const allPluginsTailNode = state.plugins.reverse().reduce((prevPlugin, currentPlugin, index) => {
+      const allPluginsTailNode = [...state.plugins].reverse().reduce((prevPlugin, currentPlugin, index) => {
         const pluginTailNode = currentPlugin.reduce((prevNode, currentNode, i) => {
-          return i === 0
-            ? (index === 0
+          return i !== 0
               ? (prevNode as AudioNode).connect(currentNode as AudioNode)
-              : currentNode as AudioNode)
-            : (prevNode as AudioNode)?.connect(currentNode as AudioNode);
-        }, index === 0 ? streamSource : {});
+              : currentNode as AudioNode;
+        }, {});
 
         return index === 0 ? pluginTailNode : (pluginTailNode as AudioNode).connect(prevPlugin as AudioNode);
       }, {});
+
+      const firstNode = state.plugins[0][0];
+      streamSource.connect(firstNode as AudioNode);
 
       setState(prevState => ({ ...prevState, allPluginsTailNode: allPluginsTailNode as AudioNode }));
     });
