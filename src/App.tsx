@@ -129,7 +129,8 @@ function App() {
   }, [state.cabConvolver, state.allPluginsTailNode, state.audioContext]);
 
   useEffect(() => {
-    if (!streamSource || !audioContext || state.plugins.length !== 2) {
+    if (!streamSource || !audioContext || state.plugins.length !== 2
+      || state.plugins.filter(plugin => !!plugin).length !== 2) {
       return;
     }
 
@@ -137,8 +138,8 @@ function App() {
       const allPluginsTailNode = [...state.plugins].reverse().reduce((prevPlugin, currentPlugin, index) => {
         const pluginTailNode = currentPlugin.reduce((prevNode, currentNode, i) => {
           return i !== 0
-              ? (prevNode as AudioNode).connect(currentNode as AudioNode)
-              : currentNode as AudioNode;
+            ? (prevNode as AudioNode).connect(currentNode as AudioNode)
+            : currentNode as AudioNode;
         }, {});
 
         return index === 0 ? pluginTailNode : (pluginTailNode as AudioNode).connect(prevPlugin as AudioNode);
