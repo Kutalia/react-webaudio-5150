@@ -8,10 +8,16 @@ import Cabinet from './features/cabinet';
 
 declare var FaustModule: any;
 
+enum InputModes {
+  DI,
+  MIC
+}
+
 interface StateType {
   audioContext: AudioContext | null,
   lineInStreamSource: MediaStreamAudioSourceNode | null,
   diTrackStreamSource: MediaElementAudioSourceNode | null,
+  inputMode: InputModes | null,
   cabConvolver: ConvolverNode | null,
   plugins: Array<Array<pedalNodeType | tubeAmpNodeType>>,
   allPluginsTailNode: AudioNode | pedalNodeType | tubeAmpNodeType | null,
@@ -24,6 +30,7 @@ const initialState: StateType = {
   audioContext: null,
   lineInStreamSource: null,
   diTrackStreamSource: null,
+  inputMode: null,
   cabConvolver: null,
   plugins: [],
   allPluginsTailNode: null,
@@ -47,7 +54,7 @@ function App() {
   }
 
   async function initGuitarInputFromLineIn() {
-    const lineInAudioContext = new AudioContext();
+    const audioContext = state.audioContext || new AudioContext();
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -58,14 +65,15 @@ function App() {
       }
     });
 
-    await resumeAudioContext(lineInAudioContext);
+    await resumeAudioContext(audioContext);
 
-    const lineInStreamSource = lineInAudioContext.createMediaStreamSource(stream);
+    const lineInStreamSource = audioContext.createMediaStreamSource(stream);
     setState((prevState) => ({
       ...prevState,
-      audioContext: lineInAudioContext,
+      audioContext,
       lineInStreamSource,
-      diTrackStreamSource: null,
+      diTrackStreamSource,
+      inputMode: InputModes.MIC,
     }));
   }
 
@@ -73,8 +81,8 @@ function App() {
     if (diTrackStreamSource) {
       return;
     }
-
-    const audioContext = new AudioContext();
+    
+    const audioContext = state.audioContext || new AudioContext();
     const audioElement = diAudioRef.current;
 
     resumeAudioContext(audioContext).then(() => {
@@ -82,8 +90,9 @@ function App() {
       setState((prevState) => ({
         ...prevState,
         audioContext,
-        lineInStreamSource: null,
+        lineInStreamSource,
         diTrackStreamSource,
+        inputMode: InputModes.DI
       }));
     });
   }
@@ -102,7 +111,13 @@ function App() {
     });
   }, []);
 
-  const streamSource = lineInStreamSource || diTrackStreamSource;
+  let streamSource: typeof diTrackStreamSource | typeof lineInStreamSource;
+
+  switch (state.inputMode) {
+    case InputModes.DI: streamSource = diTrackStreamSource; break;
+    case InputModes.MIC: streamSource = lineInStreamSource; break;
+    default: streamSource = diTrackStreamSource || lineInStreamSource;
+  }
 
   const onPluginReady = useCallback((nodes: (pedalNodeType | tubeAmpNodeType)[], index: number) => {
     setState(prevState => {
@@ -151,7 +166,7 @@ function App() {
       }, {});
 
       const firstNode = state.plugins[0][0];
-      streamSource.connect(firstNode as AudioNode);
+      (streamSource as AudioNode).connect(firstNode as AudioNode);
 
       setState(prevState => ({ ...prevState, allPluginsTailNode: allPluginsTailNode as AudioNode }));
     });

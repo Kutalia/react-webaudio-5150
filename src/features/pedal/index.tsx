@@ -43,7 +43,7 @@ const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: 
 
   if (!node) return null;
 
-  const sliderParams = (node as any).fDescriptor.filter(({ type }: descriptorType) => type === 'vslider');
+  const sliderParams = (node as any).fDescriptor.filter(({ type }: descriptorType) => type === 'vslider' || type === 'hslider');
 
   const handleChangeControl = (address: string, val: number) => {
     node.setParamValue(address, val);
