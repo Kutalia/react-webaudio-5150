@@ -54,7 +54,8 @@ function App() {
   }
 
   async function initGuitarInputFromLineIn() {
-    const audioContext = state.audioContext || new AudioContext();
+    // IRs in kpp_tubeamp *.tapf files are 48000 Hz
+    const audioContext = state.audioContext || new AudioContext({ latencyHint: 'interactive', sampleRate: 48000, });
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -82,7 +83,7 @@ function App() {
       return;
     }
     
-    const audioContext = state.audioContext || new AudioContext();
+    const audioContext = state.audioContext || new AudioContext({ latencyHint: 'interactive', sampleRate: 48000, });
     const audioElement = diAudioRef.current;
 
     resumeAudioContext(audioContext).then(() => {
