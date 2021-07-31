@@ -1,6 +1,7 @@
 ///<reference types="@grame/libfaust" />
 import { useState, useEffect, useRef } from 'react';
 import { Knob, Pointer, Arc } from 'rc-knob';
+import SpeexResampler from 'speex-resampler';
 
 import { Profile, ProfileProps, profileSize, impulseSize } from './profile';
 
@@ -32,6 +33,7 @@ const getControlsByType = (node: any, ctrlType: string): descriptorType[] => nod
 const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes) => {
     const [node, setNode] = useState<Faust.FaustMonoNode>();
     const [profile, setProfile] = useState<Profile>();
+    const [resamplerReady, setResamplerReady] = useState<boolean>(false);
     const fetchRef = useRef(false);
 
     useEffect(() => {
@@ -46,7 +48,13 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
     }, [context, factory, compiler, node, fetchRef]);
 
     useEffect(() => {
-        if (context && node && !profile) {
+        SpeexResampler.initPromise.then(() => {
+            setResamplerReady(true);
+        });
+    }, [])
+
+    useEffect(() => {
+        if (context && node && !profile && resamplerReady) {
             fetch('/tubeAmp_Profiles/v1.0/Modern Metal.tapf')
                 .then(response => response.arrayBuffer())
                 .then(buffer => {
@@ -82,7 +90,7 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
                     bufferPosition += impulseSize;
 
                     const impulseHeaderArr = new Int32Array(impulseHeader);
-                    const sampleRate = impulseHeaderArr[0];
+                    const impulseSampleRate = impulseHeaderArr[0];
                     const impulseSampleCount = impulseHeaderArr[2];
                     const impulseSamplesSize = impulseSampleCount * 4;
 
@@ -94,13 +102,17 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
                     }
 
                     const preampConvolver = new ConvolverNode(context);
-                    const audioBuffer = context.createBuffer(1, impulseSampleCount, sampleRate);
 
+                    const resampler = new SpeexResampler(1, impulseSampleRate, context.sampleRate, 10);
+                    const bufferArr = new Int16Array(impulseBuffer);
+                    const res = resampler.processChunk(bufferArr as any);
+                    const resampledArr = new Float32Array(res);
+
+                    const audioBuffer = context.createBuffer(1, res.byteLength / 2, context.sampleRate);
                     const audioData = audioBuffer.getChannelData(0);
-                    const impulseBufferArr = new Float32Array(impulseBuffer);
 
                     for (let i = 0; i < audioBuffer.length; i++) {
-                        audioData[i] = impulseBufferArr[i];
+                        audioData[i] = resampledArr[i];
                     }
 
                     preampConvolver.buffer = audioBuffer;
@@ -108,7 +120,7 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
                     onPluginReady([preampConvolver, node], index);
                 });
         }
-    }, [context, node, profile, onPluginReady, index]);
+    }, [context, node, profile, onPluginReady, index, resamplerReady]);
 
     useEffect(() => {
         const nentryParams = getControlsByType(node, 'nentry');
