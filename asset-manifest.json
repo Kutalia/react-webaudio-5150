@@ -1,0 +1,22 @@
+{
+  "files": {
+    "main.css": "/react-webaudio-5150/static/css/main.9f244f65.chunk.css",
+    "main.js": "/react-webaudio-5150/static/js/main.da0447f3.chunk.js",
+    "main.js.map": "/react-webaudio-5150/static/js/main.da0447f3.chunk.js.map",
+    "runtime-main.js": "/react-webaudio-5150/static/js/runtime-main.174e58d8.js",
+    "runtime-main.js.map": "/react-webaudio-5150/static/js/runtime-main.174e58d8.js.map",
+    "static/js/2.ae9843c2.chunk.js": "/react-webaudio-5150/static/js/2.ae9843c2.chunk.js",
+    "static/js/2.ae9843c2.chunk.js.map": "/react-webaudio-5150/static/js/2.ae9843c2.chunk.js.map",
+    "static/js/3.64d1f4cd.chunk.js": "/react-webaudio-5150/static/js/3.64d1f4cd.chunk.js",
+    "static/js/3.64d1f4cd.chunk.js.map": "/react-webaudio-5150/static/js/3.64d1f4cd.chunk.js.map",
+    "index.html": "/react-webaudio-5150/index.html",
+    "static/css/main.9f244f65.chunk.css.map": "/react-webaudio-5150/static/css/main.9f244f65.chunk.css.map",
+    "static/js/2.ae9843c2.chunk.js.LICENSE.txt": "/react-webaudio-5150/static/js/2.ae9843c2.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.174e58d8.js",
+    "static/js/2.ae9843c2.chunk.js",
+    "static/css/main.9f244f65.chunk.css",
+    "static/js/main.da0447f3.chunk.js"
+  ]
+}
