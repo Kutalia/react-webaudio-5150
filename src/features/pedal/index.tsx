@@ -31,7 +31,7 @@ const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: 
 
   useEffect(() => {
     if (factory && context && compiler && !node && !fetchRef.current) {
-      fetch(sourceUrl).then(resp => resp.text()).then(text => {
+      fetch(process.env.PUBLIC_URL + '/' + sourceUrl).then(resp => resp.text()).then(text => {
         fetchRef.current = true;
         factory.compileNode(context, 'Pedal' + index, compiler, text, '-ftz 2', false, 128).then(node => {
           setNode(node);

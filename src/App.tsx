@@ -184,7 +184,7 @@ function App() {
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>
         <audio controls ref={diAudioRef} onPlay={onDiPlay}>
-          <source src="di/LasseMagoDI.mp3" type="audio/mpeg" />
+          <source src={`${process.env.PUBLIC_URL}/di/LasseMagoDI.mp3`} type="audio/mpeg" />
         </audio>
       </div>
     </div>

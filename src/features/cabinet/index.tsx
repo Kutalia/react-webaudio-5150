@@ -20,7 +20,7 @@ const Cabinet = ({ audioContext, onCabReady }: PropTypes) => {
 
     useEffect(() => {
         if (audioContext) {
-          fetch(`/ir/${irs[position]}.wav`)
+          fetch(`${process.env.PUBLIC_URL}/ir/${irs[position]}.wav`)
             .then(response => response.arrayBuffer())
             .then(buffer => {
               audioContext.decodeAudioData(buffer, decoded => {
@@ -35,8 +35,8 @@ const Cabinet = ({ audioContext, onCabReady }: PropTypes) => {
 
     return (
         <div className="cabinet" onClick={changePosition}>
-            <img className="speaker" alt="Guitar Speaker" src="/speaker.png" />
-            <img className={`mic mic--${positions[position]}`} alt="Microphone" src="/shure_sm57.png" />
+            <img className="speaker" alt="Guitar Speaker" src={`${process.env.PUBLIC_URL}/speaker.png`} />
+            <img className={`mic mic--${positions[position]}`} alt="Microphone" src={`${process.env.PUBLIC_URL}/shure_sm57.png`} />
         </div>
     );
 };

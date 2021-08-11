@@ -26,7 +26,7 @@ type descriptorType = {
     type: string,
 };
 
-const tubeAmpAddr = '/kpp_tubeamp.dsp';
+const tubeAmpAddr = 'kpp_tubeamp.dsp';
 
 const getControlsByType = (node: any, ctrlType: string): descriptorType[] => node ? (node).fDescriptor.filter(({ type }: descriptorType) => type === ctrlType) : [];
 
@@ -39,7 +39,7 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
     useEffect(() => {
         if (!node && factory && context && compiler && !fetchRef.current) {
             fetchRef.current = true;
-            fetch(tubeAmpAddr).then(resp => resp.text()).then(text => {
+            fetch(process.env.PUBLIC_URL + '/' + tubeAmpAddr).then(resp => resp.text()).then(text => {
                 factory.compileNode(context, 'kpp_tubeamp', compiler, text, '-ftz 2', false, 128).then(faustNode => {
                     if (faustNode) setNode(faustNode);
                 });
@@ -55,7 +55,7 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
 
     useEffect(() => {
         if (context && node && !profile && resamplerReady) {
-            fetch('/tubeAmp_Profiles/v1.0/Modern Metal.tapf')
+            fetch(`${process.env.PUBLIC_URL}/tubeAmp_Profiles/v1.0/Modern Metal.tapf`)
                 .then(response => response.arrayBuffer())
                 .then(buffer => {
                     // simulating C++ fread
