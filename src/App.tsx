@@ -5,6 +5,7 @@ import './App.css';
 import Pedal, { nodeType as pedalNodeType } from './features/pedal';
 import TubeAmp, { nodeType as tubeAmpNodeType } from './features/tubeAmp';
 import Cabinet from './features/cabinet';
+import Diagram from './features/diagram';
 
 declare var FaustModule: any;
 
@@ -12,6 +13,8 @@ enum InputModes {
   DI,
   MIC
 }
+
+export type PluginType = AudioNode | pedalNodeType | tubeAmpNodeType;
 
 interface StateType {
   audioContext: AudioContext | null,
@@ -82,7 +85,7 @@ function App() {
     if (diTrackStreamSource) {
       return;
     }
-    
+
     const audioContext = state.audioContext || new AudioContext({ latencyHint: 'interactive', });
     const audioElement = diAudioRef.current;
 
@@ -179,7 +182,7 @@ function App() {
         Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
       </div>
       <div className="plugins-wrapper">
-        {plugins}
+        <Diagram plugins={plugins} />
       </div>
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>
