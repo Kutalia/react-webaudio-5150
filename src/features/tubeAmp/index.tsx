@@ -132,7 +132,9 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
         }
     }, [node, profile])
 
-    if (!node) return null;
+    if (!node) {
+        return <div>Start audio to load the plugin</div>;
+    }
 
     const sliderParams = getControlsByType(node, 'vslider');
 

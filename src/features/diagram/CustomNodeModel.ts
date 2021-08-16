@@ -1,4 +1,6 @@
-import { DefaultPortModel, NodeModel, NodeModelGenerics } from '@projectstorm/react-diagrams';
+import { NodeModel, NodeModelGenerics } from '@projectstorm/react-diagrams';
+
+import CustomPortModel from './CustomPortModel';
 
 export interface CustomNodeModelGenerics {
     PLUGIN: any,
@@ -12,8 +14,8 @@ class CustomNodeModel extends NodeModel<NodeModelGenerics & CustomNodeModelGener
             type: 'plugin',
         });
 
-        this.addPort(new DefaultPortModel(true, 'In', ''));
-        this.addPort(new DefaultPortModel(false, 'Out', ''));
+        this.addPort(new CustomPortModel(true, 'In', ''));
+        this.addPort(new CustomPortModel(false, 'Out', ''));
 
         this.plugin = plugin;
     }

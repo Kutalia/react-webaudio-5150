@@ -22,8 +22,8 @@ interface StateType {
   diTrackStreamSource: MediaElementAudioSourceNode | null,
   inputMode: InputModes | null,
   cabConvolver: ConvolverNode | null,
-  plugins: Array<Array<pedalNodeType | tubeAmpNodeType>>,
-  allPluginsTailNode: AudioNode | pedalNodeType | tubeAmpNodeType | null,
+  plugins: Array<Array<PluginType>>,
+  allPluginsTailNode: PluginType | null,
   faustCompiler: Faust.Compiler | null,
   faustFactory: Faust.MonoFactory | null,
   faustCode: string,
@@ -176,13 +176,20 @@ function App() {
     });
   }, [state.plugins, plugins.length, streamSource, audioContext]);
 
+  const setPlugins = useCallback((plugins: Array<Array<PluginType>>) => {
+    setState((prevState) => ({
+      ...prevState,
+      plugins,
+    }));
+  }, []);
+
   return (
     <div className="App">
       <div>
         Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
       </div>
       <div className="plugins-wrapper">
-        <Diagram plugins={plugins} />
+        <Diagram plugins={plugins} setPlugins={setPlugins} />
       </div>
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>

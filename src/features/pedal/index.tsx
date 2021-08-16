@@ -41,7 +41,9 @@ const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: 
     }
   }, [sourceUrl, context, factory, compiler, onPluginReady, index, node, fetchRef]);
 
-  if (!node) return null;
+  if (!node) {
+    return <div>Start audio to load the plugin</div>;
+}
 
   const sliderParams = (node as any).fDescriptor.filter(({ type }: descriptorType) => type === 'vslider' || type === 'hslider');
 
