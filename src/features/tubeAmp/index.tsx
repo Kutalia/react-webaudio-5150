@@ -4,6 +4,7 @@ import { Knob, Pointer, Arc } from 'rc-knob';
 import SpeexResampler from 'speex-resampler';
 
 import { Profile, ProfileProps, profileSize, impulseSize } from './profile';
+import { stopEventPropagation } from '../../helpers/utils';
 
 export type nodeType = Faust.FaustMonoNode | AudioNode;
 
@@ -145,7 +146,7 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
     return (
         <div className="plugin amp-head">
             <div className="plugin-title">{(node as any)?.fJSONDsp?.name}</div>
-            <div className="knobs-wrapper">
+            <div className="knobs-wrapper" onMouseDown={stopEventPropagation}>
                 {sliderParams.map(({ address, init, label, min, max, step }: descriptorType) => (
                     <div key={address} className="knob">
                         <label htmlFor={address}>{label}</label>

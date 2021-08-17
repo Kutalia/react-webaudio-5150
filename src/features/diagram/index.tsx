@@ -3,6 +3,7 @@ import createEngine, {
     DefaultLinkModel,
     DefaultPortModel,
     DiagramEngine,
+    DagreEngine,
     DiagramModel,
     NodeModel,
     PathFindingLinkFactory,
@@ -55,7 +56,6 @@ const Diagram = ({ plugins }: PropTypes) => {
 
             plugins.forEach((plugin, i) => {
                 node = new CustomNodeModel(plugin);
-                node.setPosition(i * 400, i * 100);
                 nodes.push(node);
                 if (i > 0) {
                     links.push((nodes[i - 1].getPort('Out') as DefaultPortModel).link(nodes[i].getPort('In') as DefaultPortModel, pathfinding));
@@ -80,7 +80,7 @@ const Diagram = ({ plugins }: PropTypes) => {
                         removePortLinks(sourcePort, newLink);
 
                         if (event.isCreated) {
-                            // fired when linking is complete
+                            // fired when linking to target port is complete
                             // disables chaining plugin into itself
                             newLink.registerListener({
                                 targetPortChanged: (event: any) => {
@@ -99,7 +99,29 @@ const Diagram = ({ plugins }: PropTypes) => {
             model.registerListener(listener as BaseListener);
 
             const state = engine.getStateMachine().getCurrentState();
-            (state as any).dragCanvas.config.allowDrag = false;
+            if (state) {
+                (state as any).dragCanvas.config.allowDrag = false;
+            }
+
+            setTimeout(() => {
+                const dagreEngine = new DagreEngine({
+                    graph: {
+                        rankdir: 'LR',
+                        ranker: 'longest-path',
+                        marginx: 25,
+                        marginy: 25,
+                    },
+                    includeLinks: true
+                });
+
+                dagreEngine.redistribute(model);
+                engine
+                    .getLinkFactories()
+                    .getFactory<PathFindingLinkFactory>(PathFindingLinkFactory.NAME)
+                    .calculateRoutingMatrix();
+
+                engine.repaintCanvas();
+            }, 1000);
         }
     }, [plugins, engine]);
 

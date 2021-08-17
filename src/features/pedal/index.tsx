@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Knob, Pointer, Arc, Value } from 'rc-knob';
 
+import { stopEventPropagation } from '../../helpers/utils';
+
 export type nodeType = Faust.FaustMonoNode | null;
 
 type propTypes = {
@@ -43,7 +45,7 @@ const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: 
 
   if (!node) {
     return <div>Start audio to load the plugin</div>;
-}
+  }
 
   const sliderParams = (node as any).fDescriptor.filter(({ type }: descriptorType) => type === 'vslider' || type === 'hslider');
 
@@ -54,7 +56,7 @@ const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: 
   return (
     <div className="plugin pedal">
       <div className="plugin-title">{(node as any)?.fJSONDsp?.name}</div>
-      <div className="knobs-wrapper">
+      <div className="knobs-wrapper" onMouseDown={stopEventPropagation}>
         {sliderParams.map(({ address, init, label, min, max, step }: descriptorType) => (
           <div key={address} className="knob">
             <label htmlFor={address}>{label.toUpperCase()}</label>
