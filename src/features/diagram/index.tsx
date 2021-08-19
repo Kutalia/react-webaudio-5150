@@ -9,6 +9,9 @@ import createEngine, {
     PathFindingLinkFactory,
     PathFindingLinkModel,
     PortModel,
+    DefaultNodeModel,
+    LinkModel,
+    NodeModelListener,
 } from '@projectstorm/react-diagrams';
 import {
     CanvasWidget,
@@ -32,12 +35,44 @@ const removePortLinks = (port: PortModel, linkToExclude: PathFindingLinkModel): 
     }
 }
 
-type PropTypes = {
-    plugins: JSX.Element[],
-    setPlugins: Function,
+const getSignalChain = (model: DiagramModel, inputNodeID: string) => {
+    const signalChain: number[] = [];
+    let adjacentLinks: { [id: string]: LinkModel; } | undefined;
+    let link: LinkModel;
+    let node: NodeModel = model.getNode(inputNodeID);
+    const nodes = model.getNodes();
+
+    for (let i = 0; i < nodes.length - 1; i++) {
+        adjacentLinks = (node as DefaultNodeModel)
+            .getPort('Out')?.getLinks();
+
+        if (!adjacentLinks || !Object.keys(adjacentLinks).length) {
+            return null;
+        }
+
+        link = (Object.entries(
+            adjacentLinks as {})[0][1] as LinkModel);
+
+        if (link.getSourcePort().getNode() === node) {
+            node = link.getTargetPort().getNode();
+        } else {
+            node = link.getSourcePort().getNode();
+        }
+
+        if (node instanceof CustomNodeModel) {
+            signalChain.push(node.pluginIndex);
+        }
+    }
+
+    return signalChain;
 }
 
-const Diagram = ({ plugins }: PropTypes) => {
+type PropTypes = {
+    plugins: JSX.Element[],
+    setPluginOrder: Function,
+}
+
+const Diagram = ({ plugins, setPluginOrder }: PropTypes) => {
     const [engine, setEngine] = useState<DiagramEngine>();
 
     useEffect(() => {
@@ -48,19 +83,49 @@ const Diagram = ({ plugins }: PropTypes) => {
 
     useEffect(() => {
         if (engine) {
-            const nodes: NodeModel[] = [];
-            const links: DefaultLinkModel[] = [];
+            let nodes: NodeModel[] = [];
+            let links: DefaultLinkModel[] = [];
             let node: NodeModel;
 
             const pathfinding = engine.getLinkFactories().getFactory<PathFindingLinkFactory>(PathFindingLinkFactory.NAME);
 
             plugins.forEach((plugin, i) => {
-                node = new CustomNodeModel(plugin);
+                node = new CustomNodeModel(plugin, i);
                 nodes.push(node);
                 if (i > 0) {
                     links.push((nodes[i - 1].getPort('Out') as DefaultPortModel).link(nodes[i].getPort('In') as DefaultPortModel, pathfinding));
                 }
             });
+
+            // binding input and output audio signal nodes
+            nodes = [new DefaultNodeModel({ name: 'Input' }), ...nodes];
+            nodes.push(new DefaultNodeModel({ name: 'Output' }));
+
+            const disableDeleteListener = {
+                eventWillFire: (event: BaseEvent & { function: string; }) => {
+                    if (event.function === 'entityRemoved') {
+                        event.stopPropagation();
+                    }
+                }
+            };
+
+            nodes[0].registerListener(disableDeleteListener as NodeModelListener);
+            nodes[nodes.length - 1].registerListener(disableDeleteListener as NodeModelListener);
+
+            if (nodes.length > 2) {
+                links = [
+                    (nodes[0] as DefaultNodeModel)
+                        .addPort(new DefaultPortModel({ name: 'Out' }))
+                        .link(nodes[1].getPort('In') as DefaultPortModel, pathfinding),
+                    ...links
+                ];
+
+                links.push(
+                    (nodes[nodes.length - 2] as any)
+                        .getPort('Out')
+                        .link(nodes[nodes.length - 1].addPort(new DefaultPortModel({ name: 'In' })), pathfinding)
+                );
+            }
 
             const model = new DiagramModel();
             model.addAll(...nodes, ...links);
@@ -73,8 +138,6 @@ const Diagram = ({ plugins }: PropTypes) => {
                     if (event.function === 'linksUpdated') {
                         const newLink = event.link;
                         const sourcePort = newLink.getSourcePort();
-
-                        console.log(model.getLinks());
 
                         // remove existing links when relinking
                         removePortLinks(sourcePort, newLink);
@@ -89,6 +152,8 @@ const Diagram = ({ plugins }: PropTypes) => {
                                     } else {
                                         removePortLinks(event.port, newLink);
                                     }
+
+                                    setPluginOrder(getSignalChain(model, nodes[0].getID()));
                                 }
                             })
                         }
@@ -123,7 +188,7 @@ const Diagram = ({ plugins }: PropTypes) => {
                 engine.repaintCanvas();
             }, 1000);
         }
-    }, [plugins, engine]);
+    }, [plugins, engine, setPluginOrder]);
 
     if (!engine || !engine.getModel()) {
         return null;

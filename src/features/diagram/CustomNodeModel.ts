@@ -7,17 +7,13 @@ export interface CustomNodeModelGenerics {
 }
 
 class CustomNodeModel extends NodeModel<NodeModelGenerics & CustomNodeModelGenerics> {
-    plugin: JSX.Element;
-    
-    constructor(plugin: JSX.Element) {
+    constructor(public plugin: JSX.Element, public pluginIndex: number) {
         super({
             type: 'plugin',
         });
 
         this.addPort(new CustomPortModel(true, 'In', ''));
         this.addPort(new CustomPortModel(false, 'Out', ''));
-
-        this.plugin = plugin;
     }
 }
 

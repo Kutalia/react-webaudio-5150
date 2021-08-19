@@ -14,7 +14,7 @@ class CustomNodeFactory extends AbstractReactFactory<CustomNodeModel, DiagramEng
     }
 
     generateModel(event: GenerateModelEvent) {
-        return new CustomNodeModel(<></>);
+        return new CustomNodeModel(<></>, 0);
     }
 }
 

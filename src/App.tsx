@@ -16,6 +16,14 @@ enum InputModes {
 
 export type PluginType = AudioNode | pedalNodeType | tubeAmpNodeType;
 
+function disconnectPlugins(plugins: Array<Array<PluginType>>) {
+  plugins.forEach((plugin) => {
+    if (plugin) {
+      plugin.forEach(node => node?.disconnect());
+    }
+  });
+}
+
 interface StateType {
   audioContext: AudioContext | null,
   lineInStreamSource: MediaStreamAudioSourceNode | null,
@@ -23,7 +31,8 @@ interface StateType {
   inputMode: InputModes | null,
   cabConvolver: ConvolverNode | null,
   plugins: Array<Array<PluginType>>,
-  allPluginsTailNode: PluginType | null,
+  pluginOrder: Array<number> | null,
+  allPluginsTailNode: { node: PluginType; } | null,
   faustCompiler: Faust.Compiler | null,
   faustFactory: Faust.MonoFactory | null,
   faustCode: string,
@@ -36,6 +45,7 @@ const initialState: StateType = {
   inputMode: null,
   cabConvolver: null,
   plugins: [],
+  pluginOrder: null,
   allPluginsTailNode: null,
   faustCompiler: null,
   faustFactory: null,
@@ -57,7 +67,6 @@ function App() {
   }
 
   async function initGuitarInputFromLineIn() {
-    // IRs in kpp_tubeamp *.tapf files are 48000 Hz
     const audioContext = state.audioContext || new AudioContext({ latencyHint: 'interactive', });
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -133,8 +142,8 @@ function App() {
 
   const onCabReady = useCallback((cabConvolver: ConvolverNode) => {
     setState(prevState => {
-      if (prevState.cabConvolver && prevState.audioContext && prevState.allPluginsTailNode) {
-        prevState.allPluginsTailNode.disconnect(prevState.cabConvolver);
+      if (prevState.cabConvolver && prevState.audioContext && prevState.allPluginsTailNode?.node) {
+        prevState.allPluginsTailNode.node.disconnect(prevState.cabConvolver);
         prevState.cabConvolver.disconnect(prevState.audioContext.destination);
       }
       return { ...prevState, cabConvolver };
@@ -143,23 +152,31 @@ function App() {
 
   const plugins = useMemo(() => [
     <Pedal key={0} index={0} sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />,
-    <TubeAmp key={1} index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
+    <TubeAmp key={1} index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />,
+    <Pedal key={2} index={2} sourceUrl={'kpp_octaver.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />,
   ], [state.faustFactory, state.faustCompiler, state.audioContext, onPluginReady]);
 
+  // reconnects cab convolver on ir change
   useEffect(() => {
     if (state.cabConvolver && state.allPluginsTailNode && Object.keys(state.allPluginsTailNode as object).length && state.audioContext) {
-      (state.allPluginsTailNode as AudioNode).connect(state.cabConvolver as ConvolverNode).connect(state.audioContext.destination);
+      state.cabConvolver.disconnect();
+      (state.allPluginsTailNode.node as AudioNode).connect(state.cabConvolver as ConvolverNode).connect(state.audioContext.destination);
     }
   }, [state.cabConvolver, state.allPluginsTailNode, state.audioContext]);
 
+  // handles connecting faust plugins signal chain
   useEffect(() => {
     if (!streamSource || !audioContext || state.plugins.length !== plugins.length
       || state.plugins.filter(plugin => !!plugin).length !== plugins.length) {
       return;
     }
 
+    disconnectPlugins(state.plugins);
+
     resumeAudioContext(audioContext).then(() => {
-      const allPluginsTailNode = [...state.plugins].reverse().reduce((prevPlugin, currentPlugin, index) => {
+      const orderedPlugins = state.pluginOrder ? state.pluginOrder.map(pluginIndex => state.plugins[pluginIndex]) : state.plugins;
+
+      const allPluginsTailNode = [...orderedPlugins].reverse().reduce((prevPlugin, currentPlugin, index) => {
         const pluginTailNode = currentPlugin.reduce((prevNode, currentNode, i) => {
           return i !== 0
             ? (prevNode as AudioNode).connect(currentNode as AudioNode)
@@ -169,17 +186,17 @@ function App() {
         return index === 0 ? pluginTailNode : (pluginTailNode as AudioNode).connect(prevPlugin as AudioNode);
       }, {});
 
-      const firstNode = state.plugins[0][0];
+      const firstNode = orderedPlugins[0][0];
       (streamSource as AudioNode).connect(firstNode as AudioNode);
 
-      setState(prevState => ({ ...prevState, allPluginsTailNode: allPluginsTailNode as AudioNode }));
+      setState(prevState => ({ ...prevState, allPluginsTailNode: { node: allPluginsTailNode as AudioNode, } }));
     });
-  }, [state.plugins, plugins.length, streamSource, audioContext]);
+  }, [state.plugins, plugins.length, state.pluginOrder, streamSource, audioContext]);
 
-  const setPlugins = useCallback((plugins: Array<Array<PluginType>>) => {
+  const setPluginOrder = useCallback((pluginOrder: Array<number>) => {
     setState((prevState) => ({
       ...prevState,
-      plugins,
+      pluginOrder,
     }));
   }, []);
 
@@ -189,7 +206,7 @@ function App() {
         Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
       </div>
       <div className="plugins-wrapper">
-        <Diagram plugins={plugins} setPlugins={setPlugins} />
+        <Diagram plugins={plugins} setPluginOrder={setPluginOrder} />
       </div>
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>
