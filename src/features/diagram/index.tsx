@@ -70,9 +70,10 @@ const getSignalChain = (model: DiagramModel, inputNodeID: string) => {
 type PropTypes = {
     plugins: JSX.Element[],
     setPluginOrder: Function,
-}
+    addPlugin: Function,
+};
 
-const Diagram = ({ plugins, setPluginOrder }: PropTypes) => {
+const Diagram = ({ plugins, setPluginOrder, addPlugin }: PropTypes) => {
     const [engine, setEngine] = useState<DiagramEngine>();
 
     useEffect(() => {
@@ -194,7 +195,16 @@ const Diagram = ({ plugins, setPluginOrder }: PropTypes) => {
         return null;
     }
 
-    return <CanvasWidget className="canvas" engine={engine} />;
+    return (
+        <div onDrop={event => {
+            const data = event.dataTransfer.getData('plugin');
+            addPlugin(data);
+        }}
+            className="canvas"
+            onDragOver={event => event.preventDefault()}>
+            <CanvasWidget className="canvas" engine={engine} />
+        </div>
+    );
 }
 
 export default Diagram;

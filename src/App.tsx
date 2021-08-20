@@ -6,6 +6,7 @@ import Pedal, { nodeType as pedalNodeType } from './features/pedal';
 import TubeAmp, { nodeType as tubeAmpNodeType } from './features/tubeAmp';
 import Cabinet from './features/cabinet';
 import Diagram from './features/diagram';
+import PluginsTrayWidget from './features/pluginsTray';
 
 declare var FaustModule: any;
 
@@ -24,12 +25,15 @@ function disconnectPlugins(plugins: Array<Array<PluginType>>) {
   });
 }
 
+const availablePlugins = ['kpp_distruction.dsp', 'kpp_octaver.dsp', 'kpp_tubeamp.dsp', 'kpp_fuzz.dsp', 'kpp_bluedream.dsp',];
+
 interface StateType {
   audioContext: AudioContext | null,
   lineInStreamSource: MediaStreamAudioSourceNode | null,
   diTrackStreamSource: MediaElementAudioSourceNode | null,
   inputMode: InputModes | null,
   cabConvolver: ConvolverNode | null,
+  pluginsToRender: Array<string>,
   plugins: Array<Array<PluginType>>,
   pluginOrder: Array<number> | null,
   allPluginsTailNode: { node: PluginType; } | null,
@@ -44,6 +48,11 @@ const initialState: StateType = {
   diTrackStreamSource: null,
   inputMode: null,
   cabConvolver: null,
+  pluginsToRender: [
+    'kpp_distruction.dsp',
+    // 'kpp_tubeamp.dsp',
+    // 'kpp_octaver.dsp',
+  ],
   plugins: [],
   pluginOrder: null,
   allPluginsTailNode: null,
@@ -150,11 +159,14 @@ function App() {
     });
   }, []);
 
-  const plugins = useMemo(() => [
-    <Pedal key={0} index={0} sourceUrl={'kpp_distruction.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />,
-    <TubeAmp key={1} index={1} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />,
-    <Pedal key={2} index={2} sourceUrl={'kpp_octaver.dsp'} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />,
-  ], [state.faustFactory, state.faustCompiler, state.audioContext, onPluginReady]);
+  const getPluginElement = useCallback((pluginSrc: string, key: number): JSX.Element => {
+    return pluginSrc === 'kpp_tubeamp.dsp'
+      ? <TubeAmp key={key} index={key} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
+      : <Pedal key={key} index={key} sourceUrl={pluginSrc} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />;
+  }, [state.faustFactory, state.faustCompiler, state.audioContext, onPluginReady]);
+
+  const plugins = useMemo(() => state.pluginsToRender.map((pluginSrc, index) => getPluginElement(pluginSrc, index)),
+    [getPluginElement, state.pluginsToRender]);
 
   // reconnects cab convolver on ir change
   useEffect(() => {
@@ -200,13 +212,28 @@ function App() {
     }));
   }, []);
 
+  const addPlugin = useCallback((plugin: string) => {
+    setState((prevState) => {
+      disconnectPlugins(prevState.plugins);
+
+      return {
+        ...prevState,
+        pluginsToRender: [...prevState.pluginsToRender, plugin],
+        pluginOrder: prevState.pluginOrder
+          ? [...prevState.pluginOrder, prevState.plugins.length]
+          : [...prevState.plugins.map((_, index) => index), prevState.plugins.length],
+      };
+    })
+  }, []);
+
   return (
     <div className="App">
       <div>
         Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
       </div>
       <div className="plugins-wrapper">
-        <Diagram plugins={plugins} setPluginOrder={setPluginOrder} />
+        <PluginsTrayWidget plugins={availablePlugins} />
+        <Diagram plugins={plugins} setPluginOrder={setPluginOrder} addPlugin={addPlugin} />
       </div>
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>
