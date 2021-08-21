@@ -233,7 +233,7 @@ function App() {
       </div>
       <div className="plugins-wrapper">
         <PluginsTrayWidget plugins={availablePlugins} />
-        <Diagram plugins={plugins} setPluginOrder={setPluginOrder} addPlugin={addPlugin} />
+        <Diagram plugins={plugins} pluginOrder={state.pluginOrder} setPluginOrder={setPluginOrder} addPlugin={addPlugin} />
       </div>
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>

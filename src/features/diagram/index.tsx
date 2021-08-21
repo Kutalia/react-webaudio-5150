@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import createEngine, {
     DefaultLinkModel,
     DefaultPortModel,
@@ -18,14 +18,15 @@ import {
     BaseEvent,
     BaseListener
 } from '@projectstorm/react-canvas-core';
+import isEqual from 'lodash/isEqual';
 
 import './Diagram.css';
 import CustomNodeFactory from './CustomNodeFactory';
 import CustomNodeModel from './CustomNodeModel';
 
-const removePortLinks = (port: PortModel, linkToExclude: PathFindingLinkModel): void => {
+const removePortLinks = (port: PortModel, linkToExclude?: PathFindingLinkModel): void => {
     const links = port.getLinks();
-    if (Object.keys(links).length > 1) {
+    if (Object.keys(links).length > (linkToExclude ? 1 : 0)) {
         Object.entries(links).forEach((entry) => {
             const link = entry[1];
             if (link !== linkToExclude) {
@@ -71,10 +72,13 @@ type PropTypes = {
     plugins: JSX.Element[],
     setPluginOrder: Function,
     addPlugin: Function,
+    pluginOrder: number[] | null,
 };
 
-const Diagram = ({ plugins, setPluginOrder, addPlugin }: PropTypes) => {
+const Diagram = ({ plugins, setPluginOrder, pluginOrder, addPlugin }: PropTypes) => {
     const [engine, setEngine] = useState<DiagramEngine>();
+    const pluginsRef = useRef<typeof plugins>([]);
+    const pluginOrderRef = useRef<typeof pluginOrder>([]);
 
     useEffect(() => {
         const diagramEngine = createEngine({ registerDefaultZoomCanvasAction: false });
@@ -83,90 +87,119 @@ const Diagram = ({ plugins, setPluginOrder, addPlugin }: PropTypes) => {
     }, []);
 
     useEffect(() => {
-        if (engine) {
-            let nodes: NodeModel[] = [];
-            let links: DefaultLinkModel[] = [];
+        const pluginOrderChanged = !isEqual(pluginOrderRef.current, pluginOrder);
+
+        if (engine && (pluginOrderChanged || !pluginOrder) && pluginsRef.current !== plugins) {
+            let model = engine.getModel();
             let node: NodeModel;
+            let links: DefaultLinkModel[] = [];
+            const renderedPluginsLength = pluginOrder ? pluginOrder.length : plugins.length;
 
-            const pathfinding = engine.getLinkFactories().getFactory<PathFindingLinkFactory>(PathFindingLinkFactory.NAME);
+            // when new plugin is added on prerendered pedalboard
+            if (model && model.getNodes().length - 2 < renderedPluginsLength) {
+                node = new CustomNodeModel(plugins[plugins.length - 1], renderedPluginsLength - 1);
 
-            plugins.forEach((plugin, i) => {
-                node = new CustomNodeModel(plugin, i);
-                nodes.push(node);
-                if (i > 0) {
-                    links.push((nodes[i - 1].getPort('Out') as DefaultPortModel).link(nodes[i].getPort('In') as DefaultPortModel, pathfinding));
-                }
-            });
+                let outputNode = model.getNodes().filter(n => n instanceof DefaultNodeModel && (n as DefaultNodeModel).getOptions().name === 'Output')[0];
+                let outputPort = outputNode.getPort('In') as DefaultPortModel;
+                let outputLink = Object.keys(outputPort.getLinks()).length && Object.entries(outputPort.getLinks())[0][1];
+                outputLink && removePortLinks(outputPort);
 
-            // binding input and output audio signal nodes
-            nodes = [new DefaultNodeModel({ name: 'Input' }), ...nodes];
-            nodes.push(new DefaultNodeModel({ name: 'Output' }));
+                let connectedToOutputNodePort = outputLink && (outputLink.getTargetPort().getNode() === outputNode ? outputLink.getSourcePort() : outputLink.getTargetPort());
 
-            const disableDeleteListener = {
-                eventWillFire: (event: BaseEvent & { function: string; }) => {
-                    if (event.function === 'entityRemoved') {
-                        event.stopPropagation();
-                    }
-                }
-            };
-
-            nodes[0].registerListener(disableDeleteListener as NodeModelListener);
-            nodes[nodes.length - 1].registerListener(disableDeleteListener as NodeModelListener);
-
-            if (nodes.length > 2) {
                 links = [
-                    (nodes[0] as DefaultNodeModel)
-                        .addPort(new DefaultPortModel({ name: 'Out' }))
-                        .link(nodes[1].getPort('In') as DefaultPortModel, pathfinding),
-                    ...links
+                    (node.getPort('Out') as DefaultPortModel).link(outputPort),
                 ];
 
-                links.push(
-                    (nodes[nodes.length - 2] as any)
-                        .getPort('Out')
-                        .link(nodes[nodes.length - 1].addPort(new DefaultPortModel({ name: 'In' })), pathfinding)
-                );
+                outputLink && links.push((connectedToOutputNodePort as DefaultPortModel).link(node.getPort('In') as DefaultPortModel));
+
+                model.addAll(node, ...links);
             }
+            // when initializing diagram
+            else {
+                let nodes: NodeModel[] = [];
 
-            const model = new DiagramModel();
-            model.addAll(...nodes, ...links);
-            engine.setModel(model);
+                const pathfinding = engine.getLinkFactories().getFactory<PathFindingLinkFactory>(PathFindingLinkFactory.NAME);
 
-            type EventType = BaseEvent & { function: string; link: PathFindingLinkModel; isCreated: boolean; };
+                plugins.forEach((plugin, i) => {
+                    node = new CustomNodeModel(plugin, i);
+                    nodes.push(node);
+                    if (i > 0) {
+                        links.push((nodes[i - 1].getPort('Out') as DefaultPortModel).link(nodes[i].getPort('In') as DefaultPortModel, pathfinding));
+                    }
+                });
 
-            const listener = {
-                eventDidFire: (event: EventType) => {
-                    if (event.function === 'linksUpdated') {
-                        const newLink = event.link;
-                        const sourcePort = newLink.getSourcePort();
+                // binding input and output audio signal nodes
+                nodes = [new DefaultNodeModel({ name: 'Input' }), ...nodes];
+                nodes.push(new DefaultNodeModel({ name: 'Output' }));
 
-                        // remove existing links when relinking
-                        removePortLinks(sourcePort, newLink);
-
-                        if (event.isCreated) {
-                            // fired when linking to target port is complete
-                            // disables chaining plugin into itself
-                            newLink.registerListener({
-                                targetPortChanged: (event: any) => {
-                                    if (event.port.getParent() === sourcePort.getParent()) {
-                                        newLink.remove();
-                                    } else {
-                                        removePortLinks(event.port, newLink);
-                                    }
-
-                                    setPluginOrder(getSignalChain(model, nodes[0].getID()));
-                                }
-                            })
+                const disableDeleteListener = {
+                    eventWillFire: (event: BaseEvent & { function: string; }) => {
+                        if (event.function === 'entityRemoved') {
+                            event.stopPropagation();
                         }
                     }
-                },
-            };
+                };
 
-            model.registerListener(listener as BaseListener);
+                nodes[0].registerListener(disableDeleteListener as NodeModelListener);
+                nodes[nodes.length - 1].registerListener(disableDeleteListener as NodeModelListener);
 
-            const state = engine.getStateMachine().getCurrentState();
-            if (state) {
-                (state as any).dragCanvas.config.allowDrag = false;
+                if (nodes.length > 2) {
+                    links = [
+                        (nodes[0] as DefaultNodeModel)
+                            .addPort(new DefaultPortModel({ name: 'Out' }))
+                            .link(nodes[1].getPort('In') as DefaultPortModel, pathfinding),
+                        ...links
+                    ];
+
+                    links.push(
+                        (nodes[nodes.length - 2] as any)
+                            .getPort('Out')
+                            .link(nodes[nodes.length - 1].addPort(new DefaultPortModel({ name: 'In' })), pathfinding)
+                    );
+                }
+
+                model = new DiagramModel();
+                model.addAll(...nodes, ...links);
+                engine.setModel(model);
+
+                type EventType = BaseEvent & { function: string; link: PathFindingLinkModel; isCreated: boolean; };
+
+                const listener = {
+                    eventDidFire: (event: EventType) => {
+                        if (event.function === 'linksUpdated') {
+                            const newLink = event.link;
+                            const sourcePort = newLink.getSourcePort();
+
+                            // remove existing links when relinking
+                            removePortLinks(sourcePort, newLink);
+
+                            if (event.isCreated) {
+                                // fired when linking to target port is complete
+                                // disables chaining plugin into itself
+                                newLink.registerListener({
+                                    targetPortChanged: (event: any) => {
+                                        if (event.port.getParent() === sourcePort.getParent()) {
+                                            newLink.remove();
+                                        } else {
+                                            removePortLinks(event.port, newLink);
+                                        }
+
+                                        const signalChain = getSignalChain(model, nodes[0].getID());
+                                        signalChain && setPluginOrder(signalChain);
+                                    }
+                                })
+                            }
+                        }
+                    },
+                };
+
+                model.registerListener(listener as BaseListener);
+
+                const state = engine.getStateMachine().getCurrentState();
+                if (state) {
+                    (state as any).dragCanvas.config.allowDrag = false;
+                }
+
             }
 
             setTimeout(() => {
@@ -188,8 +221,14 @@ const Diagram = ({ plugins, setPluginOrder, addPlugin }: PropTypes) => {
 
                 engine.repaintCanvas();
             }, 1000);
+
+            pluginsRef.current = plugins;
         }
-    }, [plugins, engine, setPluginOrder]);
+        
+        if (pluginOrderChanged) {
+            pluginOrderRef.current = pluginOrder;
+        }
+    }, [plugins, engine, pluginOrder, setPluginOrder, pluginsRef]);
 
     if (!engine || !engine.getModel()) {
         return null;
