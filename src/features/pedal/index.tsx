@@ -7,12 +7,13 @@ import { stopEventPropagation } from '../../helpers/utils';
 export type nodeType = Faust.FaustMonoNode | null;
 
 type propTypes = {
-  index: number,
+  id: string,
   sourceUrl: string,
   context: AudioContext | null,
   factory: Faust.MonoFactory | null,
   compiler: Faust.Compiler | null,
-  onPluginReady: (node: nodeType[], index: number) => void,
+  onPluginReady: (nodes: nodeType[], source: string, id: string) => void,
+  pluginNodes?: nodeType[],
 };
 
 type descriptorType = {
@@ -26,8 +27,8 @@ type descriptorType = {
   type: string,
 };
 
-const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: propTypes) => {
-  const [node, setNode] = useState<nodeType>();
+const Pedal = ({ id, sourceUrl, context, factory, compiler, onPluginReady, pluginNodes, }: propTypes) => {
+  const [node, setNode] = useState<nodeType>(pluginNodes ? pluginNodes[0] : null);
 
   const fetchRef = useRef(false);
 
@@ -35,13 +36,13 @@ const Pedal = ({ index, sourceUrl, context, factory, compiler, onPluginReady }: 
     if (factory && context && compiler && !node && !fetchRef.current) {
       fetch(process.env.PUBLIC_URL + '/' + sourceUrl).then(resp => resp.text()).then(text => {
         fetchRef.current = true;
-        factory.compileNode(context, 'Pedal' + index, compiler, text, '-ftz 2', false, 128).then(node => {
+        factory.compileNode(context, 'Pedal_' + id, compiler, text, '-ftz 2', false, 128).then(node => {
           setNode(node);
-          onPluginReady([node], index);
+          onPluginReady([node], sourceUrl, id);
         });
       });
     }
-  }, [sourceUrl, context, factory, compiler, onPluginReady, index, node, fetchRef]);
+  }, [sourceUrl, context, factory, compiler, onPluginReady, id, node, fetchRef]);
 
   if (!node) {
     return <div>Start audio to load the plugin</div>;

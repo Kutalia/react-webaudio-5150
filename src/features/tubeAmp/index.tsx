@@ -9,11 +9,12 @@ import { stopEventPropagation } from '../../helpers/utils';
 export type nodeType = Faust.FaustMonoNode | AudioNode;
 
 type propTypes = {
-    index: number, // relative index with other plugins
+    id: string,
     context: AudioContext | null,
     factory: Faust.MonoFactory | null,
     compiler: Faust.Compiler | null,
-    onPluginReady: (nodes: nodeType[], index: number) => void,
+    onPluginReady: (nodes: nodeType[], source: string, id: string) => void,
+    pluginNodes?: nodeType[],
 };
 
 type descriptorType = {
@@ -31,8 +32,8 @@ const tubeAmpAddr = 'kpp_tubeamp.dsp';
 
 const getControlsByType = (node: any, ctrlType: string): descriptorType[] => node ? (node).fDescriptor.filter(({ type }: descriptorType) => type === ctrlType) : [];
 
-const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes) => {
-    const [node, setNode] = useState<Faust.FaustMonoNode>();
+const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes }: propTypes) => {
+    const [node, setNode] = useState<Faust.FaustMonoNode | null>((pluginNodes ? pluginNodes[1] : null) as (Faust.FaustMonoNode | null));
     const [profile, setProfile] = useState<Profile>();
     const [resamplerReady, setResamplerReady] = useState<boolean>(false);
     const fetchRef = useRef(false);
@@ -41,12 +42,12 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
         if (!node && factory && context && compiler && !fetchRef.current) {
             fetchRef.current = true;
             fetch(process.env.PUBLIC_URL + '/' + tubeAmpAddr).then(resp => resp.text()).then(text => {
-                factory.compileNode(context, 'kpp_tubeamp', compiler, text, '-ftz 2', false, 128).then(faustNode => {
+                factory.compileNode(context, 'kpp_tubeamp_' + id, compiler, text, '-ftz 2', false, 128).then(faustNode => {
                     if (faustNode) setNode(faustNode);
                 });
             });
         }
-    }, [context, factory, compiler, node, fetchRef]);
+    }, [context, factory, compiler, node, fetchRef, id]);
 
     useEffect(() => {
         SpeexResampler.initPromise.then(() => {
@@ -118,10 +119,10 @@ const TubeAmp = ({ index, context, factory, compiler, onPluginReady }: propTypes
 
                     preampConvolver.buffer = audioBuffer;
 
-                    onPluginReady([preampConvolver, node], index);
+                    onPluginReady([preampConvolver, node], tubeAmpAddr, id);
                 });
         }
-    }, [context, node, profile, onPluginReady, index, resamplerReady]);
+    }, [context, node, profile, onPluginReady, id, resamplerReady]);
 
     useEffect(() => {
         const nentryParams = getControlsByType(node, 'nentry');

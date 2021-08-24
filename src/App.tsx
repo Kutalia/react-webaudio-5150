@@ -1,5 +1,6 @@
 ///<reference types="@grame/libfaust" />
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import './App.css';
 
 import Pedal, { nodeType as pedalNodeType } from './features/pedal';
@@ -16,9 +17,16 @@ enum InputModes {
 }
 
 export type PluginType = AudioNode | pedalNodeType | tubeAmpNodeType;
+type PluginsType = Record<string, {
+  source: string;
+  nodes: Array<PluginType>;
+  order: number;
+}>;
 
-function disconnectPlugins(plugins: Array<Array<PluginType>>) {
-  plugins.forEach((plugin) => {
+function disconnectPlugins(plugins: PluginsType) {
+  const pluginNodes = Object.entries(plugins).map(entry => entry[1].nodes);
+
+  pluginNodes.forEach((plugin) => {
     if (plugin) {
       plugin.forEach(node => node?.disconnect());
     }
@@ -33,9 +41,9 @@ interface StateType {
   diTrackStreamSource: MediaElementAudioSourceNode | null,
   inputMode: InputModes | null,
   cabConvolver: ConvolverNode | null,
-  pluginsToRender: Array<string>,
-  plugins: Array<Array<PluginType>>,
-  pluginOrder: Array<number> | null,
+  pluginsHistory: Array<string>, // filled when new plugins are loaded by source url, doesn't get reduced for caching reasons
+  plugins: PluginsType, // all currently loaded plugins
+  pluginsOrder: Array<number> | null, // plugin indices from pluginsHistory
   allPluginsTailNode: { node: PluginType; } | null,
   faustCompiler: Faust.Compiler | null,
   faustFactory: Faust.MonoFactory | null,
@@ -48,13 +56,13 @@ const initialState: StateType = {
   diTrackStreamSource: null,
   inputMode: null,
   cabConvolver: null,
-  pluginsToRender: [
+  pluginsHistory: [
     'kpp_distruction.dsp',
     // 'kpp_tubeamp.dsp',
     // 'kpp_octaver.dsp',
   ],
-  plugins: [],
-  pluginOrder: null,
+  plugins: {},
+  pluginsOrder: null,
   allPluginsTailNode: null,
   faustCompiler: null,
   faustFactory: null,
@@ -141,11 +149,27 @@ function App() {
     default: streamSource = diTrackStreamSource || lineInStreamSource;
   }
 
-  const onPluginReady = useCallback((nodes: (pedalNodeType | tubeAmpNodeType)[], index: number) => {
+  const onPluginReady = useCallback((nodes: (pedalNodeType | tubeAmpNodeType)[], source: string, id: string) => {
     setState(prevState => {
-      const plugins = [...(prevState.plugins)];
-      plugins[index] = nodes;
-      return { ...prevState, plugins };
+      const pluginEntries = Object.entries(prevState.plugins);
+      const lastPluginOccurance = (pluginEntries
+        .filter(entry => entry[1].source === source)
+        ?.map(entry => entry[1].order)
+        .sort((a, b) => b - a) || [undefined])[0];
+
+      let order = prevState.pluginsHistory.indexOf(source, typeof lastPluginOccurance === 'number' ? lastPluginOccurance + 1 : undefined);
+      order = order === -1 ? prevState.pluginsHistory.length : order;
+
+      return {
+        ...prevState, plugins: {
+          ...prevState.plugins,
+          [id]: {
+            order,
+            nodes,
+            source,
+          }
+        }
+      };
     });
   }, []);
 
@@ -159,14 +183,28 @@ function App() {
     });
   }, []);
 
-  const getPluginElement = useCallback((pluginSrc: string, key: number): JSX.Element => {
+  const getPluginElement = useCallback((pluginSrc: string, id: string, pluginNodes?: Array<PluginType>): JSX.Element => {
     return pluginSrc === 'kpp_tubeamp.dsp'
-      ? <TubeAmp key={key} index={key} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />
-      : <Pedal key={key} index={key} sourceUrl={pluginSrc} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} />;
+      ? <TubeAmp id={id} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} pluginNodes={pluginNodes as tubeAmpNodeType[]} />
+      : <Pedal id={id} sourceUrl={pluginSrc} compiler={state.faustCompiler} factory={state.faustFactory} context={state.audioContext} onPluginReady={onPluginReady} pluginNodes={pluginNodes as pedalNodeType[]} />;
   }, [state.faustFactory, state.faustCompiler, state.audioContext, onPluginReady]);
 
-  const plugins = useMemo(() => state.pluginsToRender.map((pluginSrc, index) => getPluginElement(pluginSrc, index)),
-    [getPluginElement, state.pluginsToRender]);
+  const renderingPluginIdsRef = useRef<Array<string>>([]);
+  const plugins = useMemo(() => state.pluginsHistory.map((pluginSrc, index) => {
+    let pluginId: string;
+    if (!renderingPluginIdsRef.current[index]) {
+      pluginId = uuidv4();
+      renderingPluginIdsRef.current[index] = pluginId;
+    } else {
+      pluginId = renderingPluginIdsRef.current[index];
+    }
+
+    const pluginEntries = Object.entries(state.plugins);
+    const possiblePluginEntry = pluginEntries.filter(entry => entry[0] === pluginId)[0];
+    const nodes = possiblePluginEntry ? possiblePluginEntry[1].nodes : undefined;
+
+    return getPluginElement(pluginSrc, pluginId, nodes);
+  }), [getPluginElement, state.pluginsHistory, state.plugins, renderingPluginIdsRef]);
 
   // reconnects cab convolver on ir change
   useEffect(() => {
@@ -178,17 +216,26 @@ function App() {
 
   // handles connecting faust plugins signal chain
   useEffect(() => {
-    if (!streamSource || !audioContext || state.plugins.length !== plugins.length
-      || state.plugins.filter(plugin => !!plugin).length !== plugins.length) {
+    if (!streamSource || !audioContext || Object.keys(state.plugins).length !== plugins.length
+      || Object.entries(state.plugins).filter(entry => !!entry[1]).length !== plugins.length) {
       return;
     }
 
     disconnectPlugins(state.plugins);
 
     resumeAudioContext(audioContext).then(() => {
-      const orderedPlugins = state.pluginOrder ? state.pluginOrder.map(pluginIndex => state.plugins[pluginIndex]) : state.plugins;
+      const pluginEntries = Object.entries(state.plugins);
 
-      const allPluginsTailNode = [...orderedPlugins].reverse().reduce((prevPlugin, currentPlugin, index) => {
+      const orderedPlugins = state.pluginsOrder
+        ? state.pluginsOrder.map(order => pluginEntries.filter(entry => entry[1].order === order)[0][1].nodes)
+        : pluginEntries.map(entry => entry[1].nodes);
+      const isAnyPluginLoading = !!orderedPlugins.filter(plugin => !plugin).length;
+
+      if (isAnyPluginLoading) {
+        return;
+      }
+
+      const allPluginsTailNode = [...orderedPlugins as Array<PluginType[]>].reverse().reduce((prevPlugin, currentPlugin, index) => {
         const pluginTailNode = currentPlugin.reduce((prevNode, currentNode, i) => {
           return i !== 0
             ? (prevNode as AudioNode).connect(currentNode as AudioNode)
@@ -198,30 +245,41 @@ function App() {
         return index === 0 ? pluginTailNode : (pluginTailNode as AudioNode).connect(prevPlugin as AudioNode);
       }, {});
 
-      const firstNode = orderedPlugins[0][0];
+      const firstNode = (orderedPlugins as Array<PluginType[]>)[0][0];
       (streamSource as AudioNode).connect(firstNode as AudioNode);
 
       setState(prevState => ({ ...prevState, allPluginsTailNode: { node: allPluginsTailNode as AudioNode, } }));
     });
-  }, [state.plugins, plugins.length, state.pluginOrder, streamSource, audioContext]);
+  }, [state.plugins, plugins.length, state.pluginsOrder, streamSource, audioContext]);
 
-  const setPluginOrder = useCallback((pluginOrder: Array<number>) => {
+  const setPluginsOrder = useCallback((pluginsOrder: Array<number>) => {
     setState((prevState) => ({
       ...prevState,
-      pluginOrder,
+      pluginsOrder,
     }));
   }, []);
 
-  const addPlugin = useCallback((plugin: string) => {
+  const addPlugin = useCallback((source: string) => {
     setState((prevState) => {
       disconnectPlugins(prevState.plugins);
+      const pluginEntries = Object.entries(prevState.plugins);
+
+      // if all loaded plugins of a given source are already in a signal chain
+      const shouldLoadNewPlugin = !prevState.pluginsOrder || prevState.pluginsHistory.filter((src, index) => src === source && prevState.pluginsOrder?.includes(index)).length
+        === pluginEntries.filter(entry => entry[1].source === source).length;
+
+      const newPluginsOrder = prevState.pluginsOrder
+        ? [...prevState.pluginsOrder, shouldLoadNewPlugin
+          ? pluginEntries.length
+          : (pluginEntries.find(entry => entry[1].source === source && !prevState.pluginsOrder?.includes(entry[1].order)) as any)[1].order]
+        : [...pluginEntries.map((_, index) => index), pluginEntries.length]
 
       return {
         ...prevState,
-        pluginsToRender: [...prevState.pluginsToRender, plugin],
-        pluginOrder: prevState.pluginOrder
-          ? [...prevState.pluginOrder, prevState.plugins.length]
-          : [...prevState.plugins.map((_, index) => index), prevState.plugins.length],
+        pluginsHistory: !shouldLoadNewPlugin
+          ? prevState.pluginsHistory
+          : [...prevState.pluginsHistory, source],
+        pluginsOrder: newPluginsOrder,
       };
     })
   }, []);
@@ -233,7 +291,7 @@ function App() {
       </div>
       <div className="plugins-wrapper">
         <PluginsTrayWidget plugins={availablePlugins} />
-        <Diagram plugins={plugins} pluginOrder={state.pluginOrder} setPluginOrder={setPluginOrder} addPlugin={addPlugin} />
+        <Diagram plugins={plugins} pluginsOrder={state.pluginsOrder} setPluginsOrder={setPluginsOrder} addPlugin={addPlugin} />
       </div>
       <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
       <div>

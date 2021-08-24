@@ -70,15 +70,15 @@ const getSignalChain = (model: DiagramModel, inputNodeID: string) => {
 
 type PropTypes = {
     plugins: JSX.Element[],
-    setPluginOrder: Function,
+    setPluginsOrder: Function,
     addPlugin: Function,
-    pluginOrder: number[] | null,
+    pluginsOrder: number[] | null,
 };
 
-const Diagram = ({ plugins, setPluginOrder, pluginOrder, addPlugin }: PropTypes) => {
+const Diagram = ({ plugins, setPluginsOrder, pluginsOrder, addPlugin }: PropTypes) => {
     const [engine, setEngine] = useState<DiagramEngine>();
     const pluginsRef = useRef<typeof plugins>([]);
-    const pluginOrderRef = useRef<typeof pluginOrder>([]);
+    const pluginsOrderRef = useRef<typeof pluginsOrder>([]);
 
     useEffect(() => {
         const diagramEngine = createEngine({ registerDefaultZoomCanvasAction: false });
@@ -87,17 +87,19 @@ const Diagram = ({ plugins, setPluginOrder, pluginOrder, addPlugin }: PropTypes)
     }, []);
 
     useEffect(() => {
-        const pluginOrderChanged = !isEqual(pluginOrderRef.current, pluginOrder);
+        const pluginsOrderChanged = !isEqual(pluginsOrderRef.current, pluginsOrder);
+        const pluginAdded = pluginsOrder && pluginsOrderRef.current && (pluginsOrderRef.current as number[]).length < pluginsOrder.length;
 
-        if (engine && (pluginOrderChanged || !pluginOrder) && pluginsRef.current !== plugins) {
+        if (engine && (pluginAdded || ((pluginsOrderChanged || !pluginsOrder) && pluginsRef.current !== plugins))) {
             let model = engine.getModel();
             let node: NodeModel;
             let links: DefaultLinkModel[] = [];
-            const renderedPluginsLength = pluginOrder ? pluginOrder.length : plugins.length;
+            const renderedPluginsLength = pluginsOrder ? pluginsOrder.length : plugins.length;
+            const newPluginIndex = pluginsOrder ? pluginsOrder[pluginsOrder.length - 1] : renderedPluginsLength - 1;
 
             // when new plugin is added on prerendered pedalboard
             if (model && model.getNodes().length - 2 < renderedPluginsLength) {
-                node = new CustomNodeModel(plugins[plugins.length - 1], renderedPluginsLength - 1);
+                node = new CustomNodeModel(pluginsOrder ? plugins[newPluginIndex as number] : plugins[plugins.length - 1], newPluginIndex);
 
                 let outputNode = model.getNodes().filter(n => n instanceof DefaultNodeModel && (n as DefaultNodeModel).getOptions().name === 'Output')[0];
                 let outputPort = outputNode.getPort('In') as DefaultPortModel;
@@ -115,7 +117,7 @@ const Diagram = ({ plugins, setPluginOrder, pluginOrder, addPlugin }: PropTypes)
                 model.addAll(node, ...links);
             }
             // when initializing diagram
-            else {
+            else if (!pluginsOrder) {
                 let nodes: NodeModel[] = [];
 
                 const pathfinding = engine.getLinkFactories().getFactory<PathFindingLinkFactory>(PathFindingLinkFactory.NAME);
@@ -185,7 +187,7 @@ const Diagram = ({ plugins, setPluginOrder, pluginOrder, addPlugin }: PropTypes)
                                         }
 
                                         const signalChain = getSignalChain(model, nodes[0].getID());
-                                        signalChain && setPluginOrder(signalChain);
+                                        signalChain && setPluginsOrder(signalChain);
                                     }
                                 })
                             }
@@ -224,11 +226,11 @@ const Diagram = ({ plugins, setPluginOrder, pluginOrder, addPlugin }: PropTypes)
 
             pluginsRef.current = plugins;
         }
-        
-        if (pluginOrderChanged) {
-            pluginOrderRef.current = pluginOrder;
+
+        if (pluginsOrderChanged) {
+            pluginsOrderRef.current = pluginsOrder;
         }
-    }, [plugins, engine, pluginOrder, setPluginOrder, pluginsRef]);
+    }, [plugins, engine, pluginsOrder, setPluginsOrder, pluginsRef]);
 
     if (!engine || !engine.getModel()) {
         return null;
