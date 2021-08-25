@@ -2,12 +2,12 @@
 // parameters.
 
 export enum ProfileProps {
-    signature, version, preamp_level, preamp_bias, preamp_Kreg, preamp_Upor,
+    source, signature, version, preamp_level, preamp_bias, preamp_Kreg, preamp_Upor,
     tonestack_low_freq, tonestack_low_band, tonestack_middle_freq, tonestack_middle_band, tonestack_high_freq, tonestack_high_band,
     amp_level, amp_bias, amp_Kreg, amp_Upor, sag_time, sag_coeff, output_level,
 }
 
-export type ProfilePropTypes = [string, ...number[]];
+export type ProfilePropTypes = [string, string, ...number[]];
 
 export type ProfilePropsUnion = keyof typeof ProfileProps;
 

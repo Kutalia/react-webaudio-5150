@@ -211,6 +211,7 @@ const Diagram = ({ plugins, setPluginsOrder, pluginsOrder, addPlugin }: PropType
                         ranker: 'longest-path',
                         marginx: 25,
                         marginy: 25,
+                        ranksep: 25,
                     },
                     includeLinks: true
                 });

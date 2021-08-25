@@ -1,7 +1,7 @@
 ///<reference types="@grame/libfaust" />
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { Knob, Pointer, Arc } from 'rc-knob';
-import SpeexResampler from 'speex-resampler';
+import { resample } from 'wave-resampler';
 
 import { Profile, ProfileProps, profileSize, impulseSize } from './profile';
 import { stopEventPropagation } from '../../helpers/utils';
@@ -13,8 +13,9 @@ type propTypes = {
     context: AudioContext | null,
     factory: Faust.MonoFactory | null,
     compiler: Faust.Compiler | null,
-    onPluginReady: (nodes: nodeType[], source: string, id: string) => void,
+    onPluginReady: (nodes: nodeType[], source: string, id: string, profile: Profile) => void,
     pluginNodes?: nodeType[],
+    pluginProfile?: Profile
 };
 
 type descriptorType = {
@@ -29,13 +30,18 @@ type descriptorType = {
 };
 
 const tubeAmpAddr = 'kpp_tubeamp.dsp';
+const availableProfiles = [
+    'v1.0/American Clean', 'v1.0/American Vintage', 'v1.0/British Crunch', 'v1.0/Modern Metal',
+    'v1.2/Classic Hard', 'v1.2/JCM800 (spice)', 'v1.2/MarkII', 'v1.2/TwinReverb (spice)',
+];
+const defaultProfile = availableProfiles[0];
 
 const getControlsByType = (node: any, ctrlType: string): descriptorType[] => node ? (node).fDescriptor.filter(({ type }: descriptorType) => type === ctrlType) : [];
 
-const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes }: propTypes) => {
+const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes, pluginProfile }: propTypes) => {
     const [node, setNode] = useState<Faust.FaustMonoNode | null>((pluginNodes ? pluginNodes[1] : null) as (Faust.FaustMonoNode | null));
-    const [profile, setProfile] = useState<Profile>();
-    const [resamplerReady, setResamplerReady] = useState<boolean>(false);
+    const [profileSource, setProfileSource] = useState<string>(pluginProfile?.source || defaultProfile);
+    const [profile, setProfile] = useState<Profile | undefined>(pluginProfile);
     const fetchRef = useRef(false);
 
     useEffect(() => {
@@ -50,14 +56,9 @@ const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes }:
     }, [context, factory, compiler, node, fetchRef, id]);
 
     useEffect(() => {
-        SpeexResampler.initPromise.then(() => {
-            setResamplerReady(true);
-        });
-    }, [])
-
-    useEffect(() => {
-        if (context && node && !profile && resamplerReady) {
-            fetch(`${process.env.PUBLIC_URL}/tubeAmp_Profiles/v1.0/Modern Metal.tapf`)
+        if (context && node && ((!pluginNodes && !profile) || (profileSource !== (profile?.source || defaultProfile)))) {
+            const src = profileSource;
+            fetch(`${process.env.PUBLIC_URL}/tubeAmp_Profiles/${src}.tapf`)
                 .then(response => response.arrayBuffer())
                 .then(buffer => {
                     // simulating C++ fread
@@ -80,9 +81,10 @@ const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes }:
                     let profile: Profile;
 
                     profile = profileArr.reduce<object>((prevVal, currentVal, index) =>
-                        Object.assign(prevVal, { [ProfileProps[index]]: currentVal })
+                        Object.assign(prevVal, { [ProfileProps[index + 1]]: currentVal }) // + 1 because source property is not from tapf
                         , {}) as Profile;
 
+                    profile.source = src;
                     profile.signature = testStr;
                     profile.version = profileVersion;
 
@@ -105,12 +107,11 @@ const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes }:
 
                     const preampConvolver = new ConvolverNode(context);
 
-                    const resampler = new SpeexResampler(1, impulseSampleRate, context.sampleRate, 10);
-                    const bufferArr = new Int16Array(impulseBuffer);
-                    const res = resampler.processChunk(bufferArr as any);
-                    const resampledArr = new Float32Array(res);
+                    const bufferArr = new Float32Array(impulseBuffer);
 
-                    const audioBuffer = context.createBuffer(1, res.byteLength / 2, context.sampleRate);
+                    const resampledArr = new Float32Array(resample(bufferArr, impulseSampleRate, context.sampleRate));
+
+                    const audioBuffer = context.createBuffer(1, resampledArr.length, context.sampleRate);
                     const audioData = audioBuffer.getChannelData(0);
 
                     for (let i = 0; i < audioBuffer.length; i++) {
@@ -119,20 +120,24 @@ const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes }:
 
                     preampConvolver.buffer = audioBuffer;
 
-                    onPluginReady([preampConvolver, node], tubeAmpAddr, id);
+                    onPluginReady([preampConvolver, node], tubeAmpAddr, id, profile);
                 });
         }
-    }, [context, node, profile, onPluginReady, id, resamplerReady]);
+    }, [context, node, profile, onPluginReady, id, pluginNodes, profileSource]);
 
     useEffect(() => {
         const nentryParams = getControlsByType(node, 'nentry');
 
         if (profile) {
             nentryParams.forEach((descriptor) => {
-                node?.setParamValue(descriptor.address, profile[descriptor.label as keyof typeof ProfileProps] as number)
+                node?.setParamValue(descriptor.address, profile[descriptor.label as keyof typeof ProfileProps] as number);
             });
         }
-    }, [node, profile])
+    }, [node, profile]);
+
+    const onProfileChange = (e: ChangeEvent<HTMLSelectElement>) => {
+        setProfileSource(e.target.value);
+    };
 
     if (!node) {
         return <div>Start audio to load the plugin</div>;
@@ -147,6 +152,10 @@ const TubeAmp = ({ id, context, factory, compiler, onPluginReady, pluginNodes }:
     return (
         <div className="plugin amp-head">
             <div className="plugin-title">{(node as any)?.fJSONDsp?.name}</div>
+            <label htmlFor="profile">Choose Profile</label>
+            <select id="profile" onChange={(e) => onProfileChange(e)} value={profileSource}>
+                {availableProfiles.map((source) => <option key={source} value={source}>{source}</option>)}
+            </select>
             <div className="knobs-wrapper" onMouseDown={stopEventPropagation}>
                 {sliderParams.map(({ address, init, label, min, max, step }: descriptorType) => (
                     <div key={address} className="knob">
