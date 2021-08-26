@@ -209,8 +209,8 @@ const Diagram = ({ plugins, setPluginsOrder, pluginsOrder, addPlugin }: PropType
                     graph: {
                         rankdir: 'LR',
                         ranker: 'longest-path',
-                        marginx: 25,
-                        marginy: 25,
+                        marginx: 550,
+                        marginy: 550,
                         ranksep: 25,
                     },
                     includeLinks: true
@@ -242,7 +242,7 @@ const Diagram = ({ plugins, setPluginsOrder, pluginsOrder, addPlugin }: PropType
             const data = event.dataTransfer.getData('plugin');
             addPlugin(data);
         }}
-            className="canvas"
+            className="canvas-wrapper"
             onDragOver={event => event.preventDefault()}>
             <CanvasWidget className="canvas" engine={engine} />
         </div>

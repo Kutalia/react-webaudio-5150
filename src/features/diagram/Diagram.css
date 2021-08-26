@@ -1,5 +1,12 @@
+.canvas-wrapper {
+    height: 1000px;
+    width: 5000px;
+    margin-top: -500px;
+    margin-left: -500px;
+}
+
 .canvas{
-    height:500px;
-    width:100%;
-    overflow:inherit !important;
+    height: inherit;
+    width: 100%;
+    overflow: inherit !important;
 }

@@ -1,6 +1,5 @@
 .App {
   text-align: center;
-  background-color: #282c34;
   min-height: 100vh;
   color: white;
 }
@@ -9,9 +8,7 @@
   color: #61dafb;
 }
 
-.plugins-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
+.non-canvas {
+  position: relative;
+  z-index: 100000;
 }

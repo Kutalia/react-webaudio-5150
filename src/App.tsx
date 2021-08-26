@@ -163,7 +163,7 @@ function App() {
           .filter(entry => entry[1].source === source)
           ?.map(entry => entry[1].order)
           .sort((a, b) => b - a) || [undefined])[0];
-  
+
         order = prevState.pluginsHistory.indexOf(source, typeof lastPluginOccurance === 'number' ? lastPluginOccurance + 1 : undefined);
         order = order === -1 ? prevState.pluginsHistory.length : order;
       } else {
@@ -298,18 +298,20 @@ function App() {
 
   return (
     <div className="App">
-      <div>
-        Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
+      <div className="non-canvas">
+        <div>
+          Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
+        </div>
+        <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
+        <div>
+          <audio controls ref={diAudioRef} onPlay={onDiPlay}>
+            <source src={`${process.env.PUBLIC_URL}/di/LasseMagoDI.mp3`} type="audio/mpeg" />
+          </audio>
+        </div>
+        {!!Object.entries(state.plugins).length && <PluginsTrayWidget plugins={availablePlugins} />}
       </div>
-      <div className="plugins-wrapper">
-        <PluginsTrayWidget plugins={availablePlugins} />
+      <div className="plugins-diagram">
         <Diagram plugins={plugins} pluginsOrder={state.pluginsOrder} setPluginsOrder={setPluginsOrder} addPlugin={addPlugin} />
-      </div>
-      <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
-      <div>
-        <audio controls ref={diAudioRef} onPlay={onDiPlay}>
-          <source src={`${process.env.PUBLIC_URL}/di/LasseMagoDI.mp3`} type="audio/mpeg" />
-        </audio>
       </div>
     </div>
   );
