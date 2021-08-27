@@ -171,7 +171,9 @@ function App() {
       }
 
       return {
-        ...prevState, plugins: {
+        ...prevState,
+        pluginsOrder: prevState.pluginsOrder || [0],
+        plugins: {
           ...prevState.plugins,
           [id]: {
             order,

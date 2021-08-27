@@ -77,7 +77,7 @@ type PropTypes = {
 
 const Diagram = ({ plugins, setPluginsOrder, pluginsOrder, addPlugin }: PropTypes) => {
     const [engine, setEngine] = useState<DiagramEngine>();
-    const pluginsRef = useRef<typeof plugins>([]);
+    const pluginsRef = useRef<typeof plugins>([]); // used to maintain previous properties
     const pluginsOrderRef = useRef<typeof pluginsOrder>([]);
 
     useEffect(() => {
@@ -90,7 +90,7 @@ const Diagram = ({ plugins, setPluginsOrder, pluginsOrder, addPlugin }: PropType
         const pluginsOrderChanged = !isEqual(pluginsOrderRef.current, pluginsOrder);
         const pluginAdded = pluginsOrder && pluginsOrderRef.current && (pluginsOrderRef.current as number[]).length < pluginsOrder.length;
 
-        if (engine && (pluginAdded || ((pluginsOrderChanged || !pluginsOrder) && pluginsRef.current !== plugins))) {
+        if (engine && (pluginAdded || (pluginsRef.current !== plugins && (pluginsOrderChanged || !pluginsOrder)))) {
             let model = engine.getModel();
             let node: NodeModel;
             let links: DefaultLinkModel[] = [];
