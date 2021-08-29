@@ -33,6 +33,7 @@ const tubeAmpAddr = 'kpp_tubeamp.dsp';
 const availableProfiles = [
     'v1.0/American Clean', 'v1.0/American Vintage', 'v1.0/British Crunch', 'v1.0/Modern Metal',
     'v1.2/Classic Hard', 'v1.2/JCM800 (spice)', 'v1.2/MarkII', 'v1.2/TwinReverb (spice)',
+    'supersonic_amp', 'supersonic_amp_2', 'toan_zoan',
 ];
 const defaultProfile = availableProfiles[0];
 

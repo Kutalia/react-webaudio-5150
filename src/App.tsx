@@ -9,6 +9,7 @@ import Cabinet from './features/cabinet';
 import Diagram from './features/diagram';
 import PluginsTrayWidget from './features/pluginsTray';
 import { Profile } from './features/tubeAmp/profile';
+import Details from './features/details';
 
 declare var FaustModule: any;
 
@@ -301,6 +302,9 @@ function App() {
   return (
     <div className="App">
       <div className="non-canvas">
+        <div className="details-wrapper">
+          <Details />
+        </div>
         <div>
           Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
         </div>

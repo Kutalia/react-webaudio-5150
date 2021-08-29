@@ -12,3 +12,7 @@
   position: relative;
   z-index: 100000;
 }
+
+.details-wrapper {
+  position: absolute;
+}

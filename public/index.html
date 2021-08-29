@@ -24,7 +24,18 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>React App</title>
+    <title>Online Guitar Studio</title>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-P2PTGDWX4Y"></script>
+    <script>
+      if ('%NODE_ENV%' === 'production') {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-P2PTGDWX4Y');
+      }
+    </script>
     <script src="%PUBLIC_URL%/libfaust/libfaust-wasm.js"></script>
     <script src="%PUBLIC_URL%/libfaust/FaustLibrary.js"></script>
   </head>
