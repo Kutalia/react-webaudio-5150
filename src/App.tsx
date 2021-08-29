@@ -95,7 +95,7 @@ function App() {
         autoGainControl: false,
         noiseSuppression: false,
         latency: 0
-      }
+      } as MediaTrackConstraints
     });
 
     await resumeAudioContext(audioContext);
