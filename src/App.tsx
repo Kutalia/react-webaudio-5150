@@ -10,6 +10,7 @@ import Diagram from './features/diagram';
 import PluginsTrayWidget from './features/pluginsTray';
 import { Profile } from './features/tubeAmp/profile';
 import Details from './features/details';
+import InputDeviceSelect from './features/inputDeviceSelect';
 
 declare var FaustModule: any;
 
@@ -42,6 +43,7 @@ interface StateType {
   audioContext: AudioContext | null,
   lineInStreamSource: MediaStreamAudioSourceNode | null,
   diTrackStreamSource: MediaElementAudioSourceNode | null,
+  inputDeviceID: string,
   inputMode: InputModes | null,
   cabConvolver: ConvolverNode | null,
   pluginsHistory: Array<string>, // filled when new plugins are loaded by source url, doesn't get reduced for caching reasons
@@ -58,6 +60,7 @@ const initialState: StateType = {
   lineInStreamSource: null,
   diTrackStreamSource: null,
   inputMode: null,
+  inputDeviceID: 'default',
   cabConvolver: null,
   pluginsHistory: [
     // 'kpp_distruction.dsp',
@@ -86,11 +89,14 @@ function App() {
     return Promise.resolve();
   }
 
-  async function initGuitarInputFromLineIn() {
+  const initGuitarInputFromLineIn = useCallback(async function (deviceID?: string) {
     const audioContext = state.audioContext || new AudioContext({ latencyHint: 'interactive', });
+
+    const devID = deviceID ?? state.inputDeviceID;
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
+        deviceId: devID,
         echoCancellation: false,
         autoGainControl: false,
         noiseSuppression: false,
@@ -101,14 +107,21 @@ function App() {
     await resumeAudioContext(audioContext);
 
     const lineInStreamSource = audioContext.createMediaStreamSource(stream);
-    setState((prevState) => ({
-      ...prevState,
-      audioContext,
-      lineInStreamSource,
-      diTrackStreamSource,
-      inputMode: InputModes.MIC,
-    }));
-  }
+    setState((prevState) => {
+      if (prevState.lineInStreamSource) {
+        prevState.lineInStreamSource.disconnect();
+      }
+
+      return {
+        ...prevState,
+        audioContext,
+        lineInStreamSource,
+        diTrackStreamSource,
+        inputDeviceID: devID,
+        inputMode: InputModes.MIC,
+      }
+    });
+  }, [state.audioContext, diTrackStreamSource, state.inputDeviceID]);
 
   function onDiPlay() {
     if (diTrackStreamSource) {
@@ -196,6 +209,10 @@ function App() {
       return { ...prevState, cabConvolver };
     });
   }, []);
+
+  const deviceIDChangeHandler = useCallback((deviceID: string) => {
+    initGuitarInputFromLineIn(deviceID);
+  }, [initGuitarInputFromLineIn]);
 
   const getPluginElement = useCallback((pluginSrc: string, id: string, pluginNodes?: Array<PluginType>, pluginProfile?: Profile): JSX.Element => {
     return pluginSrc === 'kpp_tubeamp.dsp'
@@ -305,8 +322,11 @@ function App() {
         <div className="details-wrapper">
           <Details />
         </div>
+        <div className="device-select-wrapper">
+          <InputDeviceSelect onChange={deviceIDChangeHandler} />
+        </div>
         <div>
-          Click <button disabled={!!lineInStreamSource} onClick={initGuitarInputFromLineIn}>here</button> to turn on your guitar input.
+          Click <button disabled={!!lineInStreamSource} onClick={() => initGuitarInputFromLineIn()}>here</button> to turn on your guitar input.
         </div>
         <Cabinet audioContext={state.audioContext} onCabReady={onCabReady} />
         <div>

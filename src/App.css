@@ -16,3 +16,8 @@
 .details-wrapper {
   position: absolute;
 }
+
+.device-select-wrapper {
+  position: absolute;
+  right: 0;
+}
