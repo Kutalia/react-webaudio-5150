@@ -16,7 +16,7 @@ const InputDeviceSelect = ({ onChange }: PropTypes) => {
         navigator.mediaDevices.enumerateDevices()
             .then(devices => setDevices(Object.entries(devices)
                 .filter(entry => entry[1].kind === 'audioinput').map(entry => ({ id: entry[1].deviceId, label: entry[1].label, }))));
-    }, []);
+    }, [onChange]);
 
     if (!devices.length) {
         return null;

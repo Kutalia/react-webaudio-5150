@@ -12,6 +12,12 @@ const Details = () => {
             <div>
                 Official <a href="https://github.com/Kutalia/react-webaudio-5150">GitHub repository</a>
             </div>
+            <div>
+                Report bugs <a href="https://github.com/Kutalia/react-webaudio-5150/issues">here</a>
+            </div>
+            <div>
+                My story of building the app on <a href="https://kutalia.medium.com/how-i-ported-native-musical-plugins-to-javascript-in-depth-dafa014dae01">Medium</a>
+            </div>
         </div>
     );
 };
