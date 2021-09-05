@@ -211,8 +211,10 @@ function App() {
   }, []);
 
   const deviceIDChangeHandler = useCallback((deviceID: string) => {
-    initGuitarInputFromLineIn(deviceID);
-  }, [initGuitarInputFromLineIn]);
+    if (state.inputMode === InputModes.MIC) {
+      initGuitarInputFromLineIn(deviceID);
+    }
+  }, [initGuitarInputFromLineIn, state.inputMode]);
 
   const getPluginElement = useCallback((pluginSrc: string, id: string, pluginNodes?: Array<PluginType>, pluginProfile?: Profile): JSX.Element => {
     return pluginSrc === 'kpp_tubeamp.dsp'
